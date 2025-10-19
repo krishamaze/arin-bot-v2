@@ -528,7 +528,7 @@ serve(async (req)=>{
     const modelConfig = await getModelConfigFromFile();
     const activeModel = modelConfig.production; // Always use production for now
     
-    console.log('🤖 Using model:', activeModel.model, 'temp:', activeModel.temperature);
+    console.log('[BOT] Using model:', activeModel.model, 'temp:', activeModel.temperature);
 
     const completion = await openai.chat.completions.create({
       model: activeModel.model,
@@ -582,7 +582,7 @@ console.log('ðŸ¤– Cached Natural Conversation Bot v8.0 - Optimized with Pro
 async function getCachedInstructionsFromConfig(): Promise<string> {
   try {
     const promptsConfig: PromptsConfig = await configLoader.loadPrompts();
-    console.log(✓ Using prompt v+promptsConfig.version);
+    console.log('[OK] Using prompt v+promptsConfig.version);
     return promptsConfig.system_instructions.content;
   } catch (error) {
     console.error('⚠️ Config load failed, using hardcoded prompt:', error.message);
@@ -593,7 +593,7 @@ async function getCachedInstructionsFromConfig(): Promise<string> {
 async function getModelConfigFromFile(): Promise<ModelsConfig> {
   try {
     const modelsConfig: ModelsConfig = await configLoader.loadModels();
-    console.log(✓ Using model config v+modelsConfig.version);
+    console.log('[OK] Using model config v+modelsConfig.version);
     return modelsConfig;
   } catch (error) {
     console.error('⚠️ Model config load failed, using defaults:', error.message);
@@ -625,5 +625,6 @@ async function getModelConfigFromFile(): Promise<ModelsConfig> {
     };
   }
 }
+
 
 

@@ -89,6 +89,7 @@ export class ConfigLoader {
   clearCache() {
     this.cache.clear();
     this.lastFetch.clear();
-    console.log('🧹 Config cache cleared');
+    console.log('[CACHE] Config cache cleared');
   }
 }
+
