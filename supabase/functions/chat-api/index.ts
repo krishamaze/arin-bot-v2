@@ -2,15 +2,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://deno.land/x/openai@v4.20.1/mod.ts';
 import { ConfigLoader } from './services/config/loader.ts';
-import type { PromptsConfig, ModelsConfig } from './services/config/types.ts';
 
-// Version tracking for metrics
 const CODE_VERSION = 'v1.0.0';
 const configLoader = new ConfigLoader('./config');
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 // =============================================================================
 // SIMPLIFIED RESPONSE SCHEMA - SINGLE ROLE (NO SUMMARY GENERATION)
@@ -230,11 +227,9 @@ async function buildPromptMessages(botUsername, botPlatformId, botPersonality, r
     : '';
 
   // CACHEABLE SYSTEM MESSAGE (static instructions)
-  const systemPrompt = await getCachedInstructionsFromConfig();
-  
   const cachedSystemMessage = {
     role: 'system',
-    content: systemPrompt
+    content: await getCachedInstructionsFromConfig()
   };
 
   // DYNAMIC USER MESSAGE (changes every request - NOT cached)
@@ -335,6 +330,37 @@ async function saveEvents(supabase, botId, roomId, events) {
   const { error } = await supabase.from('events').insert(eventRecords);
   if (error) {
     console.error('Error saving events:', error);
+  }
+}
+
+// =============================================================================
+// CONFIG FUNCTIONS (Phase 1 - MLOps)
+// =============================================================================
+async function getCachedInstructionsFromConfig() {
+  try {
+    const promptsConfig = await configLoader.loadPrompts();
+    console.log('[CONFIG] Using prompt v' + promptsConfig.version);
+    return promptsConfig.system_instructions.content;
+  } catch (error) {
+    console.error('[CONFIG] Failed to load, using hardcoded:', error.message);
+    return getCachedInstructions();
+  }
+}
+
+async function getModelConfig() {
+  try {
+    const modelsConfig = await configLoader.loadModels();
+    console.log('[CONFIG] Using model config v' + modelsConfig.version);
+    return modelsConfig.production;
+  } catch (error) {
+    console.error('[CONFIG] Failed to load, using defaults');
+    return {
+      model: modelConfig.model,
+      temperature: 0.7,
+      max_completion_tokens: 120,
+      presence_penalty: 0.3,
+      frequency_penalty: 0.2
+    };
   }
 }
 // =============================================================================
@@ -511,7 +537,7 @@ serve(async (req)=>{
     const recentEventsNarrative = formatEventsAsNarrative(allMessages);
     await saveEvents(supabase, bot.id, room.id, events);
     // Build messages with caching support
-    const messages = buildPromptMessages(
+    const messages = await buildPromptMessages(
       bot.username, 
       bot.platform_id, 
       bot.personality, 
@@ -525,14 +551,16 @@ serve(async (req)=>{
     console.log('Cached prompt structure built, calling OpenAI with caching...');
     
     // Load model configuration
-    const modelConfig = await getModelConfigFromFile();
-    const activeModel = modelConfig.production; // Always use production for now
-    
-    console.log('[BOT] Using model:', activeModel.model, 'temp:', activeModel.temperature);
+    const modelConfig = await getModelConfig();
+    console.log('[OPENAI] Model:', modelConfig.model, 'temp:', modelConfig.temperature);
 
     const completion = await openai.chat.completions.create({
-      model: activeModel.model,
+      model: modelConfig.model,
       messages: messages,
+      temperature: modelConfig.temperature,
+      max_completion_tokens: modelConfig.max_completion_tokens,
+      presence_penalty: modelConfig.presence_penalty,
+      frequency_penalty: modelConfig.frequency_penalty,
       response_format: {
         type: 'json_schema',
         json_schema: botResponseSchema
@@ -575,56 +603,3 @@ serve(async (req)=>{
   }
 });
 console.log('ðŸ¤– Cached Natural Conversation Bot v8.0 - Optimized with Prompt Caching');
-// =============================================================================
-// CONFIG-BASED PROMPT (NEW) - with fallback to hardcoded
-// =============================================================================
-
-async function getCachedInstructionsFromConfig(): Promise<string> {
-  try {
-    const promptsConfig: PromptsConfig = await configLoader.loadPrompts();
-    console.log('[OK] Using prompt v+promptsConfig.version);
-    return promptsConfig.system_instructions.content;
-  } catch (error) {
-    console.error('⚠️ Config load failed, using hardcoded prompt:', error.message);
-    return getCachedInstructions(); // Fallback to existing function
-  }
-}
-
-async function getModelConfigFromFile(): Promise<ModelsConfig> {
-  try {
-    const modelsConfig: ModelsConfig = await configLoader.loadModels();
-    console.log('[OK] Using model config v+modelsConfig.version);
-    return modelsConfig;
-  } catch (error) {
-    console.error('⚠️ Model config load failed, using defaults:', error.message);
-    // Return hardcoded defaults matching current behavior
-    return {
-      version: 'v1.0.0-hardcoded',
-      updated: new Date().toISOString(),
-      production: {
-        model: activeModel.model,
-        temperature: activeModel.temperature,
-        max_completion_tokens: activeModel.max_completion_tokens,
-        presence_penalty: activeModel.presence_penalty,
-        frequency_penalty: activeModel.frequency_penalty,
-        description: 'Hardcoded fallback'
-      },
-      experimental: {
-        model: activeModel.model,
-        temperature: activeModel.temperature,
-        max_completion_tokens: activeModel.max_completion_tokens,
-        presence_penalty: activeModel.presence_penalty,
-        frequency_penalty: activeModel.frequency_penalty
-      },
-      features: {
-        enable_ab_testing: false,
-        ab_test_percentage: 0,
-        enable_metrics_logging: false,
-        enable_prompt_caching: true
-      }
-    };
-  }
-}
-
-
-
