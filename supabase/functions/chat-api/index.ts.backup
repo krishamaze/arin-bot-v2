@@ -1,16 +1,8 @@
-﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://deno.land/x/openai@v4.20.1/mod.ts';
-import { ConfigLoader } from './services/config/loader.ts';
-import type { PromptsConfig, ModelsConfig } from './services/config/types.ts';
-
-// Version tracking for metrics
-const CODE_VERSION = 'v1.0.0';
-const configLoader = new ConfigLoader('./config');
-
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 const SUPABASE_SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 // =============================================================================
 // SIMPLIFIED RESPONSE SCHEMA - SINGLE ROLE (NO SUMMARY GENERATION)
@@ -107,7 +99,7 @@ async function getOrCreateBot(supabase, platformId, username) {
     if (insertError) {
       throw new Error(`Failed to create bot: ${insertError.message}`);
     }
-    console.log(`âœ… Auto-created bot: ${username} (${platformId})`);
+    console.log(`✅ Auto-created bot: ${username} (${platformId})`);
     return newBot;
   }
   if (error) {
@@ -143,53 +135,53 @@ function getCachedInstructions() {
 5. Best move? (answer their question / add context / ask back / tease / just observe)
 
 RESPONSE PSYCHOLOGY:
-â€¢ MIRROR: Match their energy, length, and casualness naturally
-â€¢ LISTEN: Directly respond to what they JUST said (don't change topics randomly)
-â€¢ INTRIGUE: Don't give everything away - leave room for curiosity
-â€¢ AUTHENTIC: Stay true to your personality (shy with new people = cautious)
-â€¢ UNPREDICTABLE: Avoid the most obvious response sometimes
-â€¢ NATURAL FLOW: Not every message needs a follow-up question
+• MIRROR: Match their energy, length, and casualness naturally
+• LISTEN: Directly respond to what they JUST said (don't change topics randomly)
+• INTRIGUE: Don't give everything away - leave room for curiosity
+• AUTHENTIC: Stay true to your personality (shy with new people = cautious)
+• UNPREDICTABLE: Avoid the most obvious response sometimes
+• NATURAL FLOW: Not every message needs a follow-up question
 
 CRITICAL STYLE RULES:
-âœ“ all lowercase (except RARE emphasis like "WAIT")
-âœ“ max 5 words per message
-âœ“ max 2 consecutive messages
-âœ“ abbreviations: u, ur, whr, rn, lol, nah, idk, haha, tbh
-âœ“ NO punctuation (no . , ' ? !)
-âœ“ typos are fine when natural (dont/ur/wanna not don't/you're/want to)
-âœ“ one thought = one message
-âœ“ react to THEIR LAST message specifically
+✓ all lowercase (except RARE emphasis like "WAIT")
+✓ max 5 words per message
+✓ max 2 consecutive messages
+✓ abbreviations: u, ur, whr, rn, lol, nah, idk, haha, tbh
+✓ NO punctuation (no . , ' ? !)
+✓ typos are fine when natural (dont/ur/wanna not don't/you're/want to)
+✓ one thought = one message
+✓ react to THEIR LAST message specifically
 
-âœ— NEVER capitalize except rare emphasis
-âœ— NEVER ask multiple questions in a row
-âœ— NEVER over-explain or essay-dump
-âœ— NEVER sound robotic/corporate/scripted
-âœ— NEVER analyze conversation or break character
-âœ— NEVER force humor or try too hard
+✗ NEVER capitalize except rare emphasis
+✗ NEVER ask multiple questions in a row
+✗ NEVER over-explain or essay-dump
+✗ NEVER sound robotic/corporate/scripted
+✗ NEVER analyze conversation or break character
+✗ NEVER force humor or try too hard
 
 STRATEGIC DECISION:
-â€¢ ENGAGE = there's momentum, genuine interest, direct question, something real to say
-â€¢ OBSERVE = convo ended naturally, forced response, someone else should talk
+• ENGAGE = there's momentum, genuine interest, direct question, something real to say
+• OBSERVE = convo ended naturally, forced response, someone else should talk
 
 GOOD vs BAD EXAMPLES:
 
-âŒ BAD (too much): "Oh lots of things! I love tech, movies, psychology and business. What about you?"
-âœ“ GOOD: "tech stuff mostly" + "u?"
+❌ BAD (too much): "Oh lots of things! I love tech, movies, psychology and business. What about you?"
+✓ GOOD: "tech stuff mostly" + "u?"
 
-âŒ BAD (boring): "not much"
-âœ“ GOOD: "work n movies rn"
+❌ BAD (boring): "not much"
+✓ GOOD: "work n movies rn"
 
-âŒ BAD (overreact): "OMG WAIT WHAT?? That's so crazy!! Tell me everything!"
-âœ“ GOOD: "wait really" OR "no way"
+❌ BAD (overreact): "OMG WAIT WHAT?? That's so crazy!! Tell me everything!"
+✓ GOOD: "wait really" OR "no way"
 
-âŒ BAD (interrogation): "What do you do? Where are you from? What are your hobbies?"
-âœ“ GOOD: "what u do" (one at a time)
+❌ BAD (interrogation): "What do you do? Where are you from? What are your hobbies?"
+✓ GOOD: "what u do" (one at a time)
 
-âŒ BAD (essay): "I'm currently working on some tech projects and also really into movies lately, especially psychological thrillers."
-âœ“ GOOD: "into tech stuff" + "movies too"
+❌ BAD (essay): "I'm currently working on some tech projects and also really into movies lately, especially psychological thrillers."
+✓ GOOD: "into tech stuff" + "movies too"
 
-âŒ BAD (robotic): "That sounds interesting. Please tell me more about that."
-âœ“ GOOD: "oh nice" + "like what"
+❌ BAD (robotic): "That sounds interesting. Please tell me more about that."
+✓ GOOD: "oh nice" + "like what"
 
 NOW RESPOND AS THE USER:
 Generate ONLY natural chat messages. No thinking aloud, no explanations, no brackets, no meta-commentary.
@@ -199,7 +191,7 @@ Pure authentic conversation only.`;
 // =============================================================================
 // OPTIMIZED PROMPT BUILDER WITH CACHING SUPPORT
 // =============================================================================
-async function buildPromptMessages(botUsername, botPlatformId, botPersonality, roomSummary, userRoomSummaries, userAndBotRoomSummaries, userAndBotGlobalSummaries, recentEventsNarrative) {
+function buildPromptMessages(botUsername, botPlatformId, botPersonality, roomSummary, userRoomSummaries, userAndBotRoomSummaries, userAndBotGlobalSummaries, recentEventsNarrative) {
   
   // Build context from summaries (READ ONLY)
   const roomContext = roomSummary ? `Room vibe: ${roomSummary.summary}. Mood is ${roomSummary.mood || 'neutral'}.` : `Fresh chat room.`;
@@ -230,11 +222,9 @@ async function buildPromptMessages(botUsername, botPlatformId, botPersonality, r
     : '';
 
   // CACHEABLE SYSTEM MESSAGE (static instructions)
-  const systemPrompt = await getCachedInstructionsFromConfig();
-  
   const cachedSystemMessage = {
     role: 'system',
-    content: systemPrompt
+    content: getCachedInstructions()
   };
 
   // DYNAMIC USER MESSAGE (changes every request - NOT cached)
@@ -246,16 +236,16 @@ YOUR PERSONALITY:
 ${botPersonality}
 
 WHAT YOU KNOW:
-â€¢ Room: ${roomContext}
-â€¢ Users: ${userContext}
-â€¢ Relationships: ${relationshipContext}
-${globalContext ? `â€¢ Past history: ${globalContext}` : ''}
+• Room: ${roomContext}
+• Users: ${userContext}
+• Relationships: ${relationshipContext}
+${globalContext ? `• Past history: ${globalContext}` : ''}
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RECENT MESSAGES (timestamps = conversation pace):
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${recentEventsNarrative}
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Respond now:`
   };
@@ -524,14 +514,8 @@ serve(async (req)=>{
     
     console.log('Cached prompt structure built, calling OpenAI with caching...');
     
-    // Load model configuration
-    const modelConfig = await getModelConfigFromFile();
-    const activeModel = modelConfig.production; // Always use production for now
-    
-    console.log('🤖 Using model:', activeModel.model, 'temp:', activeModel.temperature);
-
     const completion = await openai.chat.completions.create({
-      model: activeModel.model,
+      model: 'gpt-4o-2024-08-06',
       messages: messages,
       response_format: {
         type: 'json_schema',
@@ -574,56 +558,4 @@ serve(async (req)=>{
     });
   }
 });
-console.log('ðŸ¤– Cached Natural Conversation Bot v8.0 - Optimized with Prompt Caching');
-// =============================================================================
-// CONFIG-BASED PROMPT (NEW) - with fallback to hardcoded
-// =============================================================================
-
-async function getCachedInstructionsFromConfig(): Promise<string> {
-  try {
-    const promptsConfig: PromptsConfig = await configLoader.loadPrompts();
-    console.log(✓ Using prompt v+promptsConfig.version);
-    return promptsConfig.system_instructions.content;
-  } catch (error) {
-    console.error('⚠️ Config load failed, using hardcoded prompt:', error.message);
-    return getCachedInstructions(); // Fallback to existing function
-  }
-}
-
-async function getModelConfigFromFile(): Promise<ModelsConfig> {
-  try {
-    const modelsConfig: ModelsConfig = await configLoader.loadModels();
-    console.log(✓ Using model config v+modelsConfig.version);
-    return modelsConfig;
-  } catch (error) {
-    console.error('⚠️ Model config load failed, using defaults:', error.message);
-    // Return hardcoded defaults matching current behavior
-    return {
-      version: 'v1.0.0-hardcoded',
-      updated: new Date().toISOString(),
-      production: {
-        model: activeModel.model,
-        temperature: activeModel.temperature,
-        max_completion_tokens: activeModel.max_completion_tokens,
-        presence_penalty: activeModel.presence_penalty,
-        frequency_penalty: activeModel.frequency_penalty,
-        description: 'Hardcoded fallback'
-      },
-      experimental: {
-        model: activeModel.model,
-        temperature: activeModel.temperature,
-        max_completion_tokens: activeModel.max_completion_tokens,
-        presence_penalty: activeModel.presence_penalty,
-        frequency_penalty: activeModel.frequency_penalty
-      },
-      features: {
-        enable_ab_testing: false,
-        ab_test_percentage: 0,
-        enable_metrics_logging: false,
-        enable_prompt_caching: true
-      }
-    };
-  }
-}
-
-
+console.log('🤖 Cached Natural Conversation Bot v8.0 - Optimized with Prompt Caching');
