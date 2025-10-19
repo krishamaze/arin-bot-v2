@@ -20,36 +20,36 @@ export class ConfigLoader {
 
     // Return cached config if still fresh
     if (now - lastFetch < this.cacheTTL && this.cache.has(configName)) {
-      console.log(\📋 Using cached config: \\);
+      console.log('[CACHE] Using cached config: ' + configName);
       return this.cache.get(configName);
     }
 
     try {
-      const configPath = \\/\.yaml\;
+      const configPath = this.configBasePath + '/' + configName + '.yaml';
       const fileContent = await Deno.readTextFile(configPath);
       const config = parse(fileContent);
 
       // Validate config has version
       if (!config.version) {
-        throw new Error(\Config \ missing version field\);
+        throw new Error('Config ' + configName + ' missing version field');
       }
 
-      console.log(\✓ Loaded \.yaml v\\);
+      console.log('[OK] Loaded ' + configName + '.yaml v' + config.version);
 
       this.cache.set(configName, config);
       this.lastFetch.set(configName, now);
 
       return config;
     } catch (error) {
-      console.error(\❌ Config load error for \:\, error.message);
+      console.error('[ERROR] Config load error for ' + configName + ':', error.message);
 
       // Return stale cache if available
       if (this.cache.has(configName)) {
-        console.log(\⚠️  Using stale cache for \\);
+        console.log('[WARN] Using stale cache for ' + configName);
         return this.cache.get(configName);
       }
 
-      throw new Error(\Config \ unavailable and no cache exists\);
+      throw new Error('Config ' + configName + ' unavailable and no cache exists');
     }
   }
 
@@ -89,7 +89,6 @@ export class ConfigLoader {
   clearCache() {
     this.cache.clear();
     this.lastFetch.clear();
-    console.log('[CACHE] Config cache cleared');
+    console.log('[CLEAR] Config cache cleared');
   }
 }
-
