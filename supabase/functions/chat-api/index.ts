@@ -358,7 +358,8 @@ async function getModelConfig() {
   } catch (error) {
     console.error('[CONFIG] Failed to load, using defaults');
     return {
-      model: modelConfig.model,
+      provider: 'openai',
+      model: 'gpt-4o-2024-08-06',
       temperature: 0.7,
       max_completion_tokens: 120,
       presence_penalty: 0.3,
