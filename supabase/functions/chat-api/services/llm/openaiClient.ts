@@ -10,7 +10,7 @@ export class OpenAIClient implements LLMProvider {
     this.responseSchema = responseSchema;
   }
 
-  async generate(systemPrompt: string, userPrompt: string, config: LLMConfig): Promise<LLMResponse> {
+  async generate(systemPrompt: string, userPrompt: string, config: LLMConfig, cachedContent?: string): Promise<LLMResponse> {
     console.log('[OPENAI] Calling', config.model, 'temp:', config.temperature);
 
     const completion = await this.client.chat.completions.create({

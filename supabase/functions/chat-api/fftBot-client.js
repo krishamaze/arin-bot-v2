@@ -304,6 +304,9 @@ In function saveConfig, remove all localStorage code, keep only remote code
     }
     
     BUCKET.processing = true;
+    clearTimeout(BUCKET.timer);
+    BUCKET.timer = null;
+
     const events = [...BUCKET.events];
     BUCKET.events = [];
     log('📨 sending bucket:', events.length);
@@ -324,7 +327,7 @@ In function saveConfig, remove all localStorage code, keep only remote code
       const result = await res.json();
       log('✅ Response:', result);
 
-      if (result.messages?.length > 0) {
+      if ((result.strategy === 'ENGAGE' || result.strategy === 'OBSERVE') && result.messages?.length > 0) {
         for (const msg of result.messages) {
           await sendMsg(msg.text, msg.delayMs || 1500);
         }

@@ -1,0 +1,17 @@
+{
+  "name": "supabase-cli-env",
+  "version": "1.0.0",
+  "description": "Local Supabase CLI virtual environment for arin-bot-v2",
+  "private": true,
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "supabase": "^2.54.11"
+  }
+}
+
+

@@ -11,7 +11,7 @@ export interface LLMResponse {
 }
 
 export interface LLMProvider {
-  generate(systemPrompt: string, userPrompt: string, config: any): Promise<LLMResponse>;
+  generate(systemPrompt: string, userPrompt: string, config: LLMConfig, cachedContent?: string): Promise<LLMResponse>;
 }
 
 export interface LLMConfig {
@@ -22,4 +22,6 @@ export interface LLMConfig {
   max_output_tokens?: number;
   presence_penalty?: number;
   frequency_penalty?: number;
+  enableCaching?: boolean;
+  cacheTtl?: number;
 }

@@ -1,25 +1,38 @@
-﻿version: "v1.1.0"
-updated: "2025-10-19"
+version: "v1.2.0"
+updated: "2025-01-20"
 
 production:
-  provider: "openai"  # or "gemini"
-  model: "gpt-4o-2024-08-06"
+  provider: "gemini"  # or "openai"
+  model: "models/gemini-2.5-flash-001"
   temperature: 0.7
-  max_completion_tokens: 120
+  max_output_tokens: 120
   presence_penalty: 0.3
   frequency_penalty: 0.2
-  description: "OpenAI GPT-4o"
+  description: "Google Gemini 2.5 Flash"
+  enableCaching: true
+  cacheTtl: 3600
 
 gemini_production:
   provider: "gemini"
-  model: "gemini-1.5-flash"
+  model: "models/gemini-2.5-flash-001"
   temperature: 0.7
   max_output_tokens: 120
-  description: "Google Gemini Flash"
+  description: "Google Gemini 2.5 Flash"
+  enableCaching: true
+  cacheTtl: 3600
+
+gemini_pro:
+  provider: "gemini"
+  model: "models/gemini-2.5-pro-001"
+  temperature: 0.7
+  max_output_tokens: 120
+  description: "Google Gemini 2.5 Pro"
+  enableCaching: true
+  cacheTtl: 3600
 
 experimental:
   provider: "openai"
-  model: "gpt-4o-2024-08-06"
+  model: "gpt-4o-mini"
   temperature: 0.6
   max_completion_tokens: 150
   presence_penalty: 0.4
@@ -32,3 +45,6 @@ features:
   enable_metrics_logging: false
   enable_prompt_caching: true
   fallback_provider: "gemini"  # Fallback if primary fails
+  cache_ttl: 3600  # 1 hour in seconds (max allowed by Gemini API)
+
+

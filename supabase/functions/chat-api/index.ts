@@ -1,11 +1,8 @@
-﻿import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import OpenAI from 'https://deno.land/x/openai@v4.20.1/mod.ts';
 import { ConfigLoader } from './services/config/loader.ts';
 import { LLMFactory } from './services/llm/factory.ts';
-import type { LLMConfig } from './services/llm/interface.ts';
 
-const CODE_VERSION = 'v1.0.0';
 const configLoader = new ConfigLoader('./config');
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
@@ -61,7 +58,7 @@ const botResponseSchema = {
 // DATABASE QUERY FUNCTIONS
 // =============================================================================
 async function fetchRoomSummary(supabase, botId, roomId) {
-  const { data, error } = await supabase.from('room_summaries').select('*').eq('bot_id', botId).eq('room_id', roomId).single();
+  const { data, error } = await supabase.from('room_summaries').select('summary, mood').eq('bot_id', botId).eq('room_id', roomId).single();
   if (error && error.code !== 'PGRST116') {
     console.error('Error fetching room summary:', error);
   }
@@ -69,7 +66,7 @@ async function fetchRoomSummary(supabase, botId, roomId) {
 }
 async function fetchUserRoomSummaries(supabase, botId, roomId, userPlatformIds) {
   if (userPlatformIds.length === 0) return [];
-  const { data, error } = await supabase.from('user_room_summaries').select('*').eq('bot_id', botId).eq('room_id', roomId).in('user_platform_id', userPlatformIds);
+  const { data, error } = await supabase.from('user_room_summaries').select('user_platform_id, user_display_name, summary').eq('bot_id', botId).eq('room_id', roomId).in('user_platform_id', userPlatformIds);
   if (error) {
     console.error('Error fetching user room summaries:', error);
     return [];
@@ -78,7 +75,7 @@ async function fetchUserRoomSummaries(supabase, botId, roomId, userPlatformIds) 
 }
 async function fetchUserAndBotRoomSummaries(supabase, botId, roomId, userPlatformIds) {
   if (userPlatformIds.length === 0) return [];
-  const { data, error } = await supabase.from('user_and_bot_room_summaries').select('*').eq('bot_id', botId).eq('room_id', roomId).in('user_platform_id', userPlatformIds);
+  const { data, error } = await supabase.from('user_and_bot_room_summaries').select('user_platform_id, user_display_name, relationship_summary, closeness_score').eq('bot_id', botId).eq('room_id', roomId).in('user_platform_id', userPlatformIds);
   if (error) {
     console.error('Error fetching user-bot room summaries:', error);
     return [];
@@ -87,7 +84,7 @@ async function fetchUserAndBotRoomSummaries(supabase, botId, roomId, userPlatfor
 }
 async function fetchUserAndBotGlobalSummaries(supabase, botId, userPlatformIds) {
   if (userPlatformIds.length === 0) return [];
-  const { data, error } = await supabase.from('user_and_bot_global_summaries').select('*').eq('bot_id', botId).in('user_platform_id', userPlatformIds);
+  const { data, error } = await supabase.from('user_and_bot_global_summaries').select('user_platform_id, user_display_name, global_summary').eq('bot_id', botId).in('user_platform_id', userPlatformIds);
   if (error) {
     console.error('Error fetching global summaries:', error);
     return [];
@@ -98,16 +95,16 @@ async function getOrCreateBot(supabase, platformId, username) {
   let { data, error } = await supabase.from('bots').select('id, platform_id, username, personality').eq('platform_id', platformId).single();
   if (error?.code === 'PGRST116') {
     const defaultPersonality = 'lives in bangalore, india. you chat naturally, remember past convos, and shift your tone based on closeness. you keep it casual with friends but youre a bit shy with new folks. topics you vibe with include psychology, movies, biz, and tech. 23 years old shy. use few words to reply, you dont use proper punctuation marks.';
-    const { data: newBot, error: insertError } = await supabase.from('bots').insert({
+    const { data: newBot, error: insertError } = await supabase.from('bots').upsert({
       username: username,
       platform_id: platformId,
       personality: defaultPersonality,
       config: {}
-    }).select('id, platform_id, username, personality').single();
+    }, { onConflict: 'username', ignoreDuplicates: false }).select('id, platform_id, username, personality').single();
     if (insertError) {
       throw new Error(`Failed to create bot: ${insertError.message}`);
     }
-    console.log(`âœ… Auto-created bot: ${username} (${platformId})`);
+    console.log(`✅ Auto-created bot: ${username} (${platformId})`);
     return newBot;
   }
   if (error) {
@@ -143,53 +140,53 @@ function getCachedInstructions() {
 5. Best move? (answer their question / add context / ask back / tease / just observe)
 
 RESPONSE PSYCHOLOGY:
-â€¢ MIRROR: Match their energy, length, and casualness naturally
-â€¢ LISTEN: Directly respond to what they JUST said (don't change topics randomly)
-â€¢ INTRIGUE: Don't give everything away - leave room for curiosity
-â€¢ AUTHENTIC: Stay true to your personality (shy with new people = cautious)
-â€¢ UNPREDICTABLE: Avoid the most obvious response sometimes
-â€¢ NATURAL FLOW: Not every message needs a follow-up question
+• MIRROR: Match their energy, length, and casualness naturally
+• LISTEN: Directly respond to what they JUST said (don't change topics randomly)
+• INTRIGUE: Don't give everything away - leave room for curiosity
+• AUTHENTIC: Stay true to your personality (shy with new people = cautious)
+• UNPREDICTABLE: Avoid the most obvious response sometimes
+• NATURAL FLOW: Not every message needs a follow-up question
 
 CRITICAL STYLE RULES:
-âœ“ all lowercase (except RARE emphasis like "WAIT")
-âœ“ max 5 words per message
-âœ“ max 2 consecutive messages
-âœ“ abbreviations: u, ur, whr, rn, lol, nah, idk, haha, tbh
-âœ“ NO punctuation (no . , ' ? !)
-âœ“ typos are fine when natural (dont/ur/wanna not don't/you're/want to)
-âœ“ one thought = one message
-âœ“ react to THEIR LAST message specifically
+✓ all lowercase (except RARE emphasis like "WAIT")
+✓ max 5 words per message
+✓ max 2 consecutive messages
+✓ abbreviations: u, ur, whr, rn, lol, nah, idk, haha, tbh
+✓ NO punctuation (no . , ' ? !)
+✓ typos are fine when natural (dont/ur/wanna not don't/you're/want to)
+✓ one thought = one message
+✓ react to THEIR LAST message specifically
 
-âœ— NEVER capitalize except rare emphasis
-âœ— NEVER ask multiple questions in a row
-âœ— NEVER over-explain or essay-dump
-âœ— NEVER sound robotic/corporate/scripted
-âœ— NEVER analyze conversation or break character
-âœ— NEVER force humor or try too hard
+✗ NEVER capitalize except rare emphasis
+✗ NEVER ask multiple questions in a row
+✗ NEVER over-explain or essay-dump
+✗ NEVER sound robotic/corporate/scripted
+✗ NEVER analyze conversation or break character
+✗ NEVER force humor or try too hard
 
 STRATEGIC DECISION:
-â€¢ ENGAGE = there's momentum, genuine interest, direct question, something real to say
-â€¢ OBSERVE = convo ended naturally, forced response, someone else should talk
+• ENGAGE = there's momentum, genuine interest, direct question, something real to say
+• OBSERVE = convo ended naturally, forced response, someone else should talk
 
 GOOD vs BAD EXAMPLES:
 
-âŒ BAD (too much): "Oh lots of things! I love tech, movies, psychology and business. What about you?"
-âœ“ GOOD: "tech stuff mostly" + "u?"
+❌ BAD (too much): "Oh lots of things! I love tech, movies, psychology and business. What about you?"
+✓ GOOD: "tech stuff mostly" + "u?"
 
-âŒ BAD (boring): "not much"
-âœ“ GOOD: "work n movies rn"
+❌ BAD (boring): "not much"
+✓ GOOD: "work n movies rn"
 
-âŒ BAD (overreact): "OMG WAIT WHAT?? That's so crazy!! Tell me everything!"
-âœ“ GOOD: "wait really" OR "no way"
+❌ BAD (overreact): "OMG WAIT WHAT?? That's so crazy!! Tell me everything!"
+✓ GOOD: "wait really" OR "no way"
 
-âŒ BAD (interrogation): "What do you do? Where are you from? What are your hobbies?"
-âœ“ GOOD: "what u do" (one at a time)
+❌ BAD (interrogation): "What do you do? Where are you from? What are your hobbies?"
+✓ GOOD: "what u do" (one at a time)
 
-âŒ BAD (essay): "I'm currently working on some tech projects and also really into movies lately, especially psychological thrillers."
-âœ“ GOOD: "into tech stuff" + "movies too"
+❌ BAD (essay): "I'm currently working on some tech projects and also really into movies lately, especially psychological thrillers."
+✓ GOOD: "into tech stuff" + "movies too"
 
-âŒ BAD (robotic): "That sounds interesting. Please tell me more about that."
-âœ“ GOOD: "oh nice" + "like what"
+❌ BAD (robotic): "That sounds interesting. Please tell me more about that."
+✓ GOOD: "oh nice" + "like what"
 
 NOW RESPOND AS THE USER:
 Generate ONLY natural chat messages. No thinking aloud, no explanations, no brackets, no meta-commentary.
@@ -229,36 +226,39 @@ async function buildPromptMessages(botUsername, botPlatformId, botPersonality, r
       }).join('. ')
     : '';
 
-  // CACHEABLE SYSTEM MESSAGE (static instructions)
-  const cachedSystemMessage = {
-    role: 'system',
-    content: await getCachedInstructionsFromConfig()
-  };
-
-  // DYNAMIC USER MESSAGE (changes every request - NOT cached)
-  const dynamicUserMessage = {
-    role: 'user',
-    content: `YOU ARE ${botUsername} (${botPlatformId})
+  // Get system prompt (cacheable - truly static)
+  const systemPrompt = await getCachedInstructionsFromConfig();
+  
+  // DYNAMIC CONTENT: User/girl info + conversation history (changes every request)
+  // This includes bot personality, room context, user context, and conversation history
+  const dynamicContent = `YOU ARE ${botUsername} (${botPlatformId})
 
 YOUR PERSONALITY:
 ${botPersonality}
 
 WHAT YOU KNOW:
-â€¢ Room: ${roomContext}
-â€¢ Users: ${userContext}
-â€¢ Relationships: ${relationshipContext}
-${globalContext ? `â€¢ Past history: ${globalContext}` : ''}
+• Room: ${roomContext}
+• Users: ${userContext}
+• Relationships: ${relationshipContext}
+${globalContext ? `• Past history: ${globalContext}` : ''}
 
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 RECENT MESSAGES (timestamps = conversation pace):
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ${recentEventsNarrative}
-â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-Respond now:`
+Respond now:`;
+
+  return {
+    systemPrompt,
+    dynamicContent,
+    // Legacy format for backward compatibility
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: dynamicContent }
+    ]
   };
-
-  return [cachedSystemMessage, dynamicUserMessage];
 }
 
 async function fetchLast50Messages(supabase, botId, roomId) {
@@ -292,23 +292,47 @@ function formatEventsAsNarrative(events) {
   if (!events || events.length === 0) {
     return 'No recent messages.';
   }
-  return events.map((e)=>{
-    const isSystemNotification = !e.platformId;
-    const date = new Date(e.timestamp);
-    const month = date.toLocaleString('en-US', {
-      month: 'short'
-    }).toLowerCase();
+  
+  // Helper to convert timestamp to readable datetime
+  function formatTime(timestamp) {
+    const date = new Date(timestamp);
+    
+    // Date: Oct 18
+    const month = date.toLocaleString('en-US', { month: 'short' });
     const day = date.getDate();
-    const hours = date.getHours();
+    
+    // Time: 15:06:24
+    const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    const hour12 = hours % 12 || 12;
-    const ampm = hours >= 12 ? 'pm' : 'am';
-    const formattedTime = `${month} ${day}, ${hour12}:${minutes}${ampm}`;
-    if (isSystemNotification) {
-      return `System: ${e.text} at ${formattedTime}`;
-    } else {
-      const userDisplay = `${e.username}${e.platformId ? `(${e.platformId})` : ''}`;
-      return `${userDisplay} sent "${e.text}" at ${formattedTime}`;
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    
+    return `${month} ${day}, ${hours}:${minutes}:${seconds}`;
+  }
+  
+  return events.map((e) => {
+    const userDisplay = `${e.username}${e.platformId ? ` (${e.platformId})` : ''}`;
+    const time = formatTime(e.timestamp);
+    
+    switch(e.type) {
+      case 'join':
+        return `[${time}] ${userDisplay} joined`;
+      
+      case 'left':
+        return `[${time}] ${userDisplay} left`;
+      
+      case 'quoted':
+        if (e.quotedMessage) {
+          const quotedBy = e.quotedMessage.username || 'someone';
+          const quotedText = e.quotedMessage.text || '';
+          return `[${time}] ${userDisplay} replied to ${quotedBy}'s "${quotedText}" with "${e.text}"`;
+        }
+        return `[${time}] ${userDisplay} replied "${e.text}"`;
+      
+      case 'system':
+        return `[${time}] System: ${e.text}`;
+      
+      default:
+        return `[${time}] ${userDisplay} sent "${e.text}"`;
     }
   }).join('\n');
 }
@@ -354,16 +378,37 @@ async function getModelConfig() {
   try {
     const modelsConfig = await configLoader.loadModels();
     console.log('[CONFIG] Using model config v' + modelsConfig.version);
-    return modelsConfig.production;
+    const primary = modelsConfig.production;
+    
+    // Determine fallback: if primary is gemini, use OpenAI experimental (or vice versa)
+    let fallback;
+    if (primary.provider === 'gemini') {
+      // If primary is Gemini, fallback to OpenAI
+      fallback = modelsConfig.experimental?.provider === 'openai' 
+        ? modelsConfig.experimental 
+        : modelsConfig.gemini_production || primary;
+    } else {
+      // If primary is OpenAI, fallback to Gemini
+      fallback = modelsConfig.gemini_production || modelsConfig.experimental || primary;
+    }
+    
+    return {
+      primary,
+      fallback
+    };
   } catch (error) {
     console.error('[CONFIG] Failed to load, using defaults');
-    return {
+    const defaultConfig = {
       provider: 'openai',
       model: 'gpt-4o-2024-08-06',
       temperature: 0.7,
       max_completion_tokens: 120,
       presence_penalty: 0.3,
       frequency_penalty: 0.2
+    };
+    return {
+      primary: defaultConfig,
+      fallback: defaultConfig
     };
   }
 }
@@ -379,109 +424,6 @@ serve(async (req)=>{
         'Access-Control-Allow-Headers': 'Content-Type, Authorization'
       }
     });
-  }
-  const url = new URL(req.url);
-  // ===== CONFIG ENDPOINT (GET) =====
-  if (req.method === 'GET' && url.pathname.endsWith('/config')) {
-    try {
-      const roomPath = url.searchParams.get('roomId');
-      const platformId = url.searchParams.get('platformId');
-      if (!platformId || !roomPath) {
-        return new Response(JSON.stringify({
-          error: 'Missing platformId or roomId'
-        }), {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
-      }
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-      const { data, error } = await supabase.from('bot_configs').select('platform_id').eq('room_id', roomPath).eq('platform_id', platformId).single();
-      if (error && error.code !== 'PGRST116') {
-        throw error;
-      }
-      if (!data) {
-        return new Response(JSON.stringify({
-          message: 'No config found'
-        }), {
-          status: 404,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
-      }
-      return new Response(JSON.stringify({
-        platformId: data.platform_id
-      }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    } catch (error) {
-      console.error('Config GET error:', error);
-      return new Response(JSON.stringify({
-        error: error.message
-      }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-  }
-  // ===== CONFIG SAVE (POST /config) =====
-  if (req.method === 'POST' && url.pathname.endsWith('/config')) {
-    try {
-      const { roomId, platformId, username } = await req.json();
-      if (!roomId || !platformId) {
-        return new Response(JSON.stringify({
-          error: 'Missing fields'
-        }), {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            'Access-Control-Allow-Origin': '*'
-          }
-        });
-      }
-      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-      if (username) {
-        await getOrCreateBot(supabase, platformId, username);
-      }
-      const { error } = await supabase.from('bot_configs').upsert({
-        room_id: roomId,
-        platform_id: platformId
-      }, {
-        onConflict: 'room_id,platform_id'
-      });
-      if (error) throw error;
-      return new Response(JSON.stringify({
-        success: true
-      }), {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    } catch (error) {
-      console.error('Config POST error:', error);
-      return new Response(JSON.stringify({
-        error: error.message
-      }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
   }
   // ===== MAIN CHAT API =====
   try {
@@ -508,12 +450,16 @@ serve(async (req)=>{
     }
     console.log(`Processing ${events.length} events for bot ${botPlatformId} in ${roomPath}`);
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const openai = new OpenAI({
-      apiKey: OPENAI_API_KEY
-    });
     const userPlatformIds = [
       ...new Set(events.filter((e)=>e.platformId).map((e)=>e.platformId))
     ];
+    
+    // Validate events have platform IDs (except system events)
+    const invalidEvents = events.filter((e)=>e.type !== 'system' && !e.platformId);
+    if (invalidEvents.length > 0) {
+      console.warn('⚠️ Events missing platform ID:', invalidEvents);
+    }
+    
     const bot = await getOrCreateBot(supabase, botPlatformId, events[0].username);
     console.log(`Bot ready: ${bot.username} (${bot.platform_id})`);
     const room = await getOrCreateRoom(supabase, roomPath);
@@ -539,9 +485,9 @@ serve(async (req)=>{
     ];
     console.log(`Total messages: ${last50Messages.length} from DB + ${events.length} from bucket = ${allMessages.length}`);
     const recentEventsNarrative = formatEventsAsNarrative(allMessages);
-    await saveEvents(supabase, bot.id, room.id, events);
+    
     // Build messages with caching support
-    const messages = await buildPromptMessages(
+    const promptData = await buildPromptMessages(
       bot.username, 
       bot.platform_id, 
       bot.personality, 
@@ -552,36 +498,71 @@ serve(async (req)=>{
       recentEventsNarrative
     );
     
-    console.log('Cached prompt structure built, calling OpenAI with caching...');
+    console.log('Cached prompt structure built, calling LLM provider...');
     
     // Load model configuration
-    const modelConfig = await getModelConfig();
-    console.log('[OPENAI] Model:', modelConfig.model, 'temp:', modelConfig.temperature);
-
-    const completion = await openai.chat.completions.create({
-      model: modelConfig.model,
-      messages: messages,
-      temperature: modelConfig.temperature,
-      max_completion_tokens: modelConfig.max_completion_tokens,
-      presence_penalty: modelConfig.presence_penalty,
-      frequency_penalty: modelConfig.frequency_penalty,
-      response_format: {
-        type: 'json_schema',
-        json_schema: botResponseSchema
+    const { primary: primaryConfig, fallback: fallbackConfig } = await getModelConfig();
+    console.log(`[LLM] Provider: ${primaryConfig.provider}, Model: ${primaryConfig.model}, temp: ${primaryConfig.temperature}`);
+    
+    // Initialize LLMFactory
+    const llmFactory = new LLMFactory(OPENAI_API_KEY || '', GEMINI_API_KEY || '', botResponseSchema);
+    
+    // Get or create cache for Gemini models
+    let cachedContent: string | null = null;
+    if (primaryConfig.provider === 'gemini' && primaryConfig.enableCaching && primaryConfig.model.startsWith('models/gemini-')) {
+      try {
+        // Get prompt version for cache key
+        const promptsConfig = await configLoader.loadPrompts();
+        const promptVersion = promptsConfig.version || 'v1.0.0';
+        const cacheTtl = primaryConfig.cacheTtl || 3600;
+        
+        const geminiClient = llmFactory.getGeminiClient();
+        if (geminiClient) {
+          // Create cache with system instruction only (truly static content)
+          // Use empty string for cacheable content since we only want to cache system instruction
+          // The actual dynamic content will be sent in generate() call
+          cachedContent = await geminiClient.getOrCreateCacheForPrompt(
+            promptData.systemPrompt,
+            '', // Empty content - only caching system instruction
+            primaryConfig.model,
+            promptVersion,
+            cacheTtl
+          );
+          
+          if (cachedContent) {
+            console.log('[CACHE] Using cache:', cachedContent);
+          } else {
+            console.log('[CACHE] Cache creation failed, continuing without cache');
+          }
+        }
+      } catch (error) {
+        console.warn('[CACHE] Error creating/retrieving cache:', error.message);
+        // Continue without cache
       }
-    });
-    
-    const botResponse = JSON.parse(completion.choices[0].message.content || '{}');
-    console.log(`Bot decision: ${botResponse.strategy}`);
-    
-    // Log cache usage if available
-    if (completion.usage) {
-      console.log('Token usage:', {
-        prompt_tokens: completion.usage.prompt_tokens,
-        cached_tokens: completion.usage.prompt_tokens_details?.cached_tokens || 0,
-        completion_tokens: completion.usage.completion_tokens
-      });
     }
+    
+    // Prepare prompts
+    // If cache is used, the system instruction is in the cache
+    // and only the dynamic content (user/girl info + conversation) needs to be sent
+    const systemPrompt = promptData.systemPrompt;
+    const userPrompt = promptData.dynamicContent;
+    
+    // Save events in parallel with LLM call (events saving doesn't depend on LLM response)
+    const saveEventsPromise = saveEvents(supabase, bot.id, room.id, events);
+    
+    // Generate response with fallback support and cache
+    const botResponse = await llmFactory.generateWithFallback(
+      systemPrompt,
+      userPrompt,
+      primaryConfig,
+      fallbackConfig,
+      cachedContent || undefined
+    );
+    
+    // Wait for events to be saved (should already be done, but ensure completion)
+    await saveEventsPromise;
+    
+    console.log(`Bot decision: ${botResponse.strategy}`);
     
     return new Response(JSON.stringify({
       strategy: botResponse.strategy,
@@ -606,4 +587,4 @@ serve(async (req)=>{
     });
   }
 });
-console.log('ðŸ¤– Cached Natural Conversation Bot v8.0 - Optimized with Prompt Caching');
+console.log('🤖 Unified Chat API - Multi-provider with fallback support');
