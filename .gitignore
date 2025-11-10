@@ -8,6 +8,10 @@
 .env.development
 .env.production
 .env.test
+.env.cloud
+
+# Supabase CLI tokens (stored by 'supabase login')
+.supabase/token
 
 # ===================================
 # Supabase
@@ -15,7 +19,9 @@
 .branches
 .temp
 supabase/.temp/
+supabase/.branches/
 .supabase/
+.env.cloud
 
 # ===================================
 # Deno

@@ -1,0 +1,22 @@
+# Chrome Extension Build
+*.crx
+*.pem
+.DS_Store
+
+# Node modules (if using build tools)
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+*.temp
+

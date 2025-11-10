@@ -1,5 +1,4 @@
 ﻿import type { LLMProvider, LLMResponse, LLMConfig } from './interface.ts';
-import { GoogleGenerativeAI } from '@google/genai';
 
 // Cache store in globalThis for stateless function persistence
 if (!globalThis.cacheStore) {
@@ -13,11 +12,10 @@ interface CacheInfo {
 
 export class GeminiClient implements LLMProvider {
   private apiKey: string;
-  private ai: GoogleGenerativeAI;
+  private baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
 
   constructor(apiKey: string) {
     this.apiKey = apiKey;
-    this.ai = new GoogleGenerativeAI(apiKey);
   }
 
   /**
@@ -38,9 +36,16 @@ export class GeminiClient implements LLMProvider {
       // Use minimal placeholder if content is empty (API may require at least some content)
       const contentToCache = cacheableContent || ' '; // Single space as minimal placeholder
       
-      const cache = await this.ai.caches.create({
-        model: model,
-        config: {
+      // Use REST API for cache creation
+      // Ensure model name has 'models/' prefix for cache creation endpoint
+      const cacheModelName = model.startsWith('models/') ? model : `models/${model}`;
+      console.log('[GEMINI] Cache creation - model:', cacheModelName);
+      
+      const cacheResponse = await fetch(`${this.baseUrl}/cachedContents?key=${this.apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: cacheModelName,
           contents: [{
             role: 'user',
             parts: [{ text: contentToCache }]
@@ -48,15 +53,25 @@ export class GeminiClient implements LLMProvider {
           systemInstruction: {
             parts: [{ text: systemPrompt }]
           },
-          ttl: `${ttl}s`
-        },
-        displayName: cacheName
+          ttl: `${ttl}s`,
+          displayName: cacheName
+        })
       });
 
+      if (!cacheResponse.ok) {
+        const errorText = await cacheResponse.text();
+        throw new Error(`Cache creation failed: ${cacheResponse.status} ${errorText}`);
+      }
+
+      const cache = await cacheResponse.json();
       console.log('[GEMINI] Cache created:', cache.name);
       return cache.name;
-    } catch (error) {
-      console.error('[GEMINI] Failed to create cache:', error.message);
+    } catch (error: any) {
+      console.error('[GEMINI] Failed to create cache:', error?.message || String(error));
+      // Handle rate limits for cache creation (60 RPM)
+      if (error?.code === 429 || error?.message?.includes('rate limit')) {
+        console.warn('[GEMINI] Cache creation rate limited, will retry later');
+      }
       throw error;
     }
   }
@@ -82,19 +97,29 @@ export class GeminiClient implements LLMProvider {
     // Check if we have a valid cached reference
     if (cached && cached.expiresAt > Date.now()) {
       try {
-        // Verify cache still exists by attempting to list it
-        const caches = await this.ai.caches.list({ model });
-        const exists = caches.cachedContents?.some(c => c.name === cached.name);
-        
-        if (exists) {
-          console.log('[GEMINI] Using existing cache:', cached.name);
-          return cached.name;
+        // Verify cache still exists by attempting to list it using REST API
+        const listResponse = await fetch(`${this.baseUrl}/cachedContents?key=${this.apiKey}&filter=model="${model}"`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        if (listResponse.ok) {
+          const caches = await listResponse.json();
+          const exists = caches.cachedContents?.some((c: any) => c.name === cached.name);
+          
+          if (exists) {
+            console.log('[GEMINI] Using existing cache:', cached.name);
+            return cached.name;
+          } else {
+            console.log('[GEMINI] Cache not found, will recreate');
+            globalThis.cacheStore.delete(cacheKey);
+          }
         } else {
-          console.log('[GEMINI] Cache not found, will recreate');
+          console.warn('[GEMINI] Error checking cache existence, will recreate');
           globalThis.cacheStore.delete(cacheKey);
         }
-      } catch (error) {
-        console.warn('[GEMINI] Error checking cache existence:', error.message);
+      } catch (error: any) {
+        console.warn('[GEMINI] Error checking cache existence:', error?.message || String(error));
         globalThis.cacheStore.delete(cacheKey);
       }
     }
@@ -106,9 +131,10 @@ export class GeminiClient implements LLMProvider {
       const expiresAt = Date.now() + (ttl * 1000);
       globalThis.cacheStore.set(cacheKey, { name: cacheName, expiresAt });
       return cacheName;
-    } catch (error) {
-      console.error('[GEMINI] Failed to get or create cache:', error.message);
-      return null; // Return null to fall back to non-cached request
+    } catch (error: any) {
+      console.error('[GEMINI] Failed to get or create cache:', error?.message || String(error));
+      // Graceful fallback - return null to use non-cached requests
+      return null;
     }
   }
 
@@ -134,8 +160,6 @@ export class GeminiClient implements LLMProvider {
     console.log('[GEMINI] Calling', config.model, 'temp:', config.temperature, 'cached:', !!cachedContent);
 
     try {
-      const model = this.ai.models.get(config.model);
-      
       const generationConfig: any = {
         temperature: config.temperature,
         maxOutputTokens: config.max_output_tokens || 120,
@@ -164,35 +188,97 @@ export class GeminiClient implements LLMProvider {
             }
           },
           required: ['strategy', 'messages']
-        },
-        // Disable thinking feature to prevent timeouts in serverless
-        thinkingBudget: 0
+        }
+        // Note: thinkingBudget is not supported in REST API, removed
       };
 
-      // Prepare request
-      const request: any = {
+      // Use REST API for content generation
+      // Remove 'models/' prefix if present for URL
+      const modelName = config.model.replace(/^models\//, '');
+      const url = `${this.baseUrl}/models/${modelName}:generateContent?key=${this.apiKey}`;
+      
+      // Build request body according to Gemini API REST spec
+      // Reference: https://ai.google.dev/api/rest/v1beta/models/generateContent
+      const requestBody: any = {
         contents: [{
           role: 'user',
           parts: [{ text: userPrompt }]
-        }],
-        generationConfig
+        }]
+      };
+
+      // Add generation config - must be at top level
+      requestBody.generationConfig = {
+        temperature: generationConfig.temperature,
+        maxOutputTokens: generationConfig.maxOutputTokens,
+        responseMimeType: generationConfig.responseMimeType,
+        responseSchema: generationConfig.responseSchema
+        // thinkingBudget removed - not supported in REST API
       };
 
       // Use cache if provided (system instruction comes from cache)
+      // REST API format: cachedContent should be an object with name property
       if (cachedContent) {
-        request.cachedContent = cachedContent;
+        requestBody.cachedContent = cachedContent; // Try string format first
         console.log('[GEMINI] Using cached content (system instruction from cache):', cachedContent);
       } else {
         // Only send system instruction if not using cache
-        request.systemInstruction = {
+        requestBody.systemInstruction = {
           parts: [{ text: systemPrompt }]
         };
       }
+      
+      console.log('[GEMINI] Request URL:', url.replace(this.apiKey, 'KEY_REDACTED'));
+      console.log('[GEMINI] Request body structure:', {
+        hasContents: !!requestBody.contents,
+        hasGenerationConfig: !!requestBody.generationConfig,
+        hasSystemInstruction: !!requestBody.systemInstruction,
+        hasCachedContent: !!requestBody.cachedContent,
+        contentsLength: requestBody.contents?.length || 0
+      });
 
-      const response = await model.generateContent(request);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody)
+      });
 
-      // Extract usage metadata
-      const usageMetadata = response.response.usageMetadata;
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData: any;
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { message: errorText };
+        }
+        
+        // Log detailed error information
+        const errorDetails = {
+          status: response.status,
+          statusText: response.statusText,
+          statusCode: response.status,
+          error: errorData,
+          errorMessage: errorData.error?.message || errorData.message || errorText,
+          model: config.model,
+          modelName: modelName,
+          apiKeyPresent: !!this.apiKey,
+          apiKeyPrefix: this.apiKey ? this.apiKey.substring(0, 10) + '...' : 'missing'
+        };
+        
+        console.error('[GEMINI] API Error Response:', JSON.stringify(errorDetails, null, 2));
+        
+        // Create error with status code for proper error detection
+        const errorMessage = `Gemini API error (${response.status}): ${errorDetails.errorMessage || errorText}. Model: ${config.model}`;
+        const error: any = new Error(errorMessage);
+        error.statusCode = response.status;
+        error.response = { status: response.status, data: errorData };
+        error.errorDetails = errorDetails;
+        throw error;
+      }
+
+      const responseData = await response.json();
+
+      // Extract usage metadata from REST API response
+      const usageMetadata = responseData.usageMetadata;
       if (usageMetadata) {
         const cachedTokens = usageMetadata.cachedContentTokenCount || 0;
         const promptTokens = usageMetadata.promptTokenCount || 0;
@@ -206,8 +292,8 @@ export class GeminiClient implements LLMProvider {
         console.log('[GEMINI] Total tokens:', totalTokens);
       }
 
-      // Parse response
-      const text = response.response.text();
+      // Parse response from REST API
+      const text = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
       if (!text) {
         throw new Error('Empty response from Gemini API');
       }
@@ -219,16 +305,49 @@ export class GeminiClient implements LLMProvider {
         strategy: parsed.strategy,
         messages: parsed.messages
       };
-    } catch (error) {
+    } catch (error: any) {
+      const statusCode = error?.statusCode || error?.response?.status || error?.code;
+      console.error('[GEMINI] Error in generate:', {
+        message: error?.message,
+        statusCode: statusCode,
+        error: error
+      });
+      
+      // Preserve status code in error for error detection
+      if (!error.statusCode && statusCode) {
+        error.statusCode = statusCode;
+      }
+      
       // Handle cache-related errors
-      if (error.message?.includes('404') || error.message?.includes('not found')) {
+      if (statusCode === 404 || error?.message?.includes('404') || error?.message?.includes('not found')) {
         console.warn('[GEMINI] Cache expired or not found, retrying without cache');
         // Retry without cache
         if (cachedContent) {
           return this.generate(systemPrompt, userPrompt, config);
         }
       }
-      throw new Error('Gemini API error: ' + error.message);
+      
+      // Handle rate limits
+      if (statusCode === 429 || error?.message?.includes('rate limit')) {
+        console.error('[GEMINI] Rate limit exceeded');
+        const rateLimitError: any = new Error('Gemini API rate limit exceeded. Please try again later.');
+        rateLimitError.statusCode = 429;
+        throw rateLimitError;
+      }
+      
+      // Handle token quota
+      if (statusCode === 403 || error?.message?.includes('quota')) {
+        console.error('[GEMINI] Token quota exceeded');
+        const quotaError: any = new Error('Gemini API token quota exceeded.');
+        quotaError.statusCode = 403;
+        throw quotaError;
+      }
+      
+      // Re-throw with status code preserved
+      if (!error.statusCode && statusCode) {
+        error.statusCode = statusCode;
+      }
+      throw error;
     }
   }
 

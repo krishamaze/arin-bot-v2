@@ -40,6 +40,9 @@ arin-bot-v2/
 │       ├── 03_detailed_table_info.sql
 │       └── 04_tables_with_columns.sql
 │
+├── 📂 client/                    # Browser Client Scripts
+│   └── fftBot-client.js          # Browser userscript for chat monitoring
+│
 └── 📂 supabase/                  # Supabase Project
     ├── config.toml               # Supabase configuration
     │
@@ -50,8 +53,6 @@ arin-bot-v2/
         └── 📂 chat-api/          # Main Chat API Function
             ├── index.ts          # Main API handler
             ├── deno.json         # Deno configuration
-            ├── .npmrc            # NPM configuration
-            ├── fftBot-client.js  # Browser userscript client
             │
             ├── 📂 config/        # Configuration Files
             │   ├── models.yaml   # LLM model configurations
@@ -111,11 +112,16 @@ arin-bot-v2/
 |----------------|---------|
 | `index.ts` | Main API request handler |
 | `deno.json` | Deno runtime configuration |
-| `fftBot-client.js` | Browser userscript for chat monitoring |
 | `config/models.yaml` | LLM provider and model settings |
 | `config/prompts.yaml` | Bot personality and system prompts |
 | `services/config/` | Configuration loading service |
 | `services/llm/` | LLM provider implementations |
+
+### Browser Client (`client/`)
+
+| File | Purpose |
+|------|---------|
+| `fftBot-client.js` | Browser userscript for chat monitoring and interaction |
 
 ## 🔍 Key Directories Explained
 

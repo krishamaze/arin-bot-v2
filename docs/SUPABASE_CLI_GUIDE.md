@@ -1,416 +1,573 @@
-# Supabase CLI Guide — Migrations & Database Checks
+# Supabase CLI Guide — Local First Development
 
-This guide is tailored for the **arin-bot-v2** project.
+This guide covers **local development** for safe, offline testing before pushing to cloud.
 
-## Current Project Status
+> **Note**: For cloud-only development workflow (no Docker required), see [SUPABASE_CLOUD_WORKFLOW.md](./SUPABASE_CLOUD_WORKFLOW.md).
 
-- **Supabase CLI**: ✅ Installed in virtual environment (v2.54.11)
-- **Virtual Environment**: ✅ `.venv_supabase` directory
-- **Project Link**: ❌ Not linked (needs linking)
-- **Migrations Directory**: ✅ Created (`supabase/migrations/`)
-- **Migration Files**: ❌ None yet (need to pull from remote)
-- **TypeScript Types**: ❌ Not generated yet
+## Why Local First?
 
-## Installation
+- ✅ **Safe**: Local changes don't affect production
+- ✅ **Offline**: Develop without internet connection
+- ✅ **Fast**: No network latency
+- ✅ **Free**: No API usage costs
+- ✅ **Isolated**: Multiple developers can work simultaneously
+- ✅ **Testable**: Reset database easily for testing
 
-This project uses a **node-based virtual environment** for Supabase CLI to avoid global installs and version conflicts.
+## Prerequisites
 
-### Setup Virtual Environment (First Time)
+- Docker Desktop (required for local Supabase)
+- Node.js (v18+)
+- Supabase CLI (installed via `npm install`)
 
-```bash
-# Create virtual environment directory
-mkdir .venv_supabase
-cd .venv_supabase
-
-# Initialize npm
-npm init -y
-
-# Install Supabase CLI as dev dependency
-npm install supabase --save-dev
-```
-
-### Verify Installation
+## Quick Start
 
 ```bash
-# From project root
-npx --prefix .venv_supabase supabase --version
-# Output: 2.54.11
+# Install dependencies
+npm install
+
+# Start local Supabase
+npm run supabase:start
+
+# Apply migrations
+npm run supabase:push
+
+# Seed test data
+npm run supabase:seed
+
+# Generate types
+npm run supabase:types
+
+# Open Studio
+npm run supabase:studio
 ```
 
-**Benefits:**
-- ✅ No global install required
-- ✅ Version pinned in `package.json`
-- ✅ No cross-project conflicts
-- ✅ Each repo has its own CLI version
+## Local First Workflow
 
----
-
-## Initial Setup
-
-### 1. Login to Supabase
+### 1. Start Local Supabase
 
 ```bash
-npx --prefix .venv_supabase supabase login
+npm run supabase:start
 ```
 
-Opens browser for authentication.
+This spins up a local Supabase instance using Docker with:
+- PostgreSQL database
+- Supabase API
+- Supabase Studio
+- Auth, Storage, Realtime services
 
-### 2. Link Your Project
+**Ports** (configured in `supabase/config.toml`):
+- API: `65430`
+- Database: `65431`
+- Studio: `65433`
+- Shadow DB: `65432`
 
-**Your project reference**: `opaxtxfxropmjrrqlewh`
+### 2. Check Status
 
 ```bash
-# List your projects
-npx --prefix .venv_supabase supabase projects list
-
-# Link to your project
-npx --prefix .venv_supabase supabase link --project-ref opaxtxfxropmjrrqlewh
+npm run supabase:status
 ```
 
-**Verify link:**
+Shows local Supabase URLs and auto-generated keys:
+- API URL
+- DB URL
+- Studio URL
+- Anon key
+- Service role key
+
+### 3. Development Loop
+
+#### Create Migration
 
 ```bash
-npx --prefix .venv_supabase supabase status
+# Generate migration from schema changes
+npm run supabase:diff
+
+# Or create new migration manually
+npx supabase migration new add_feature
 ```
 
-**Note**: After linking, you can use `--linked` flag for remote operations instead of `--db-url`.
-
----
-
-## Migration Workflow
-
-### Pull Existing Schema from Remote
-
-Since your database already exists, first pull the current schema:
+#### Apply to Local
 
 ```bash
-# Option 1: Using linked project (after linking)
-npx --prefix .venv_supabase supabase db pull
-
-# Option 2: Using direct connection (current method)
-# Make sure DATABASE_URL is in .env and password is correct
-.\scripts\verify-schema.ps1 -PullSchema
+# Push migrations to local database
+npm run supabase:push
 ```
 
-This creates migration files in `supabase/migrations/` based on your remote database.
-
-### Create a New Migration
+#### Seed Test Data
 
 ```bash
-# Creates timestamped file in supabase/migrations/
-npx --prefix .venv_supabase supabase migration new <migration-name>
+# Reset and seed database
+npm run supabase:seed
 
-# Example:
-npx --prefix .venv_supabase supabase migration new add_user_profiles
-
-# Creates: supabase/migrations/20250115120000_add_user_profiles.sql
+# Or just reset (no seed)
+npx supabase db reset
 ```
 
-### Edit Migration File
-
-Edit the generated SQL file in `supabase/migrations/`:
-
-```sql
--- Example migration
-CREATE TABLE user_profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID REFERENCES auth.users(id),
-  full_name TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Enable RLS
-ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
-
--- Create policy
-CREATE POLICY "Users can view own profile"
-  ON user_profiles FOR SELECT
-  USING (auth.uid() = user_id);
-```
-
-### Apply Migrations to Remote
+#### Generate Types
 
 ```bash
-# Push all pending migrations to remote database
-npx --prefix .venv_supabase supabase db push
+# Generate TypeScript types from local schema
+npm run supabase:types
+```
 
-# Or explicitly use linked project
-npx --prefix .venv_supabase supabase db push --linked
+#### Test RLS Policies
+
+```bash
+# Run RLS tests
+npm run supabase:test:rls
+```
+
+### 4. View Logs
+
+```bash
+# Follow database logs
+npm run supabase:logs
+```
+
+### 5. Open Studio
+
+```bash
+# Open Supabase Studio in browser
+npm run supabase:studio
+```
+
+## Migrations 101
+
+### Safe Migration Loop
+
+1. **Edit SQL/Schema** → Make your schema changes
+2. **Generate Migration** → `npm run supabase:diff` (creates migration file)
+3. **Apply Locally** → `npm run supabase:push` (applies to local DB)
+4. **Seed Data** → `npm run supabase:seed` (optional test data)
+5. **Validate RLS** → `npm run supabase:test:rls` (test policies)
+6. **Test Application** → Verify everything works
+7. **Push to Cloud** → `npx supabase db push --linked` (only when ready)
+
+### Create New Migration
+
+```bash
+# Auto-generate from schema diff
+npm run supabase:diff
+
+# Or create empty migration
+npx supabase migration new migration_name
+```
+
+### Apply Migrations
+
+```bash
+# Apply to local database
+npm run supabase:push
+
+# Apply to cloud (after linking)
+npx supabase db push --linked
 ```
 
 ### Check Migration Status
 
 ```bash
-# List all migrations and their status
-npx --prefix .venv_supabase supabase migration list
-
-# Shows:
-# - Applied migrations (✓)
-# - Pending migrations (pending)
-# - Local-only migrations (local)
+# List all migrations
+npx supabase migration list
 ```
 
-### Repair Migration History
+Shows:
+- ✓ Applied migrations
+- pending migrations
+- local-only migrations
 
-If migration history gets out of sync:
+### Pull Schema from Remote
 
 ```bash
-# Mark a migration as applied (if it was applied manually)
-npx --prefix .venv_supabase supabase migration repair --status applied <migration-timestamp>
-
-# Example:
-npx --prefix .venv_supabase supabase migration repair --status applied 20250115120000
+# Pull remote schema (creates migration)
+npm run supabase:pull
 ```
 
----
+## RLS Cookbook
 
-## Database Inspection
+### Common RLS Patterns
 
-### Check Table Statistics
+#### 1. Users can only see their own data
+
+```sql
+CREATE POLICY "Users can view own data"
+  ON your_table FOR SELECT
+  USING (auth.uid() = user_id);
+```
+
+#### 2. Users can insert their own data
+
+```sql
+CREATE POLICY "Users can insert own data"
+  ON your_table FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+```
+
+#### 3. Public read, authenticated write
+
+```sql
+CREATE POLICY "Public read access"
+  ON your_table FOR SELECT
+  TO public
+  USING (true);
+
+CREATE POLICY "Authenticated write access"
+  ON your_table FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+```
+
+#### 4. Team-based access
+
+```sql
+CREATE POLICY "Team members can view team data"
+  ON your_table FOR SELECT
+  USING (
+    auth.uid() IN (
+      SELECT user_id FROM team_members
+      WHERE team_id = your_table.team_id
+    )
+  );
+```
+
+### Testing RLS
+
+Create test queries in `tests/rls/run.sql`:
+
+```sql
+-- Test positive case (should return rows)
+SELECT * FROM your_table WHERE user_id = auth.uid();
+
+-- Test negative case (should return empty)
+SELECT * FROM your_table WHERE user_id != auth.uid();
+```
+
+Run tests:
 
 ```bash
-# View table sizes, row counts, and disk usage
-npx --prefix .venv_supabase supabase inspect db table-stats --linked
+npm run supabase:test:rls
 ```
 
-### Database Statistics
+## Ports & Collision Resolution
+
+### Current Port Configuration
+
+This project uses custom ports (65430-65437) to avoid conflicts:
+
+- API: `65430`
+- Database: `65431`
+- Shadow DB: `65432`
+- Studio: `65433`
+- Inbucket: `65434`
+- Analytics: `65435`
+- Pooler: `65436`
+- Inspector: `65437`
+
+### Changing Ports
+
+Edit `supabase/config.toml`:
+
+```toml
+[api]
+port = 54321  # Change API port
+
+[db]
+port = 54322  # Change DB port
+
+[studio]
+port = 54323  # Change Studio port
+```
+
+### Port Collision Troubleshooting
+
+If ports are already in use:
+
+1. **Check what's using the port:**
+   ```bash
+   # Windows
+   netstat -ano | findstr :65430
+   
+   # macOS/Linux
+   lsof -i :65430
+   ```
+
+2. **Change ports in config.toml** (see above)
+
+3. **Restart Supabase:**
+   ```bash
+   npm run supabase:stop
+   npm run supabase:start
+   ```
+
+## Cloud Push Rules
+
+### When to Push to Cloud
+
+**Only push to cloud after:**
+- ✅ Migrations tested locally
+- ✅ RLS policies validated
+- ✅ Application tested
+- ✅ Types generated and verified
+
+### Linking Project (One-Time)
 
 ```bash
-# Overall database stats
-npx --prefix .venv_supabase supabase inspect db db-stats --linked
+# Login to Supabase
+npx supabase login
+
+# Link to your project
+npx supabase link --project-ref opaxtxfxropmjrrqlewh
 ```
 
-### Index Statistics
+### Pushing to Cloud
 
 ```bash
-# Check index usage and performance
-npx --prefix .venv_supabase supabase inspect db index-stats --linked
+# Push migrations to cloud
+npx supabase db push --linked
+
+# Verify push
+npx supabase migration list --linked
 ```
 
-### Query Performance
+**Important**: Always use `--linked` flag for cloud operations to avoid accidents.
+
+### Generating Types from Cloud
 
 ```bash
-# Long-running queries
-npx --prefix .venv_supabase supabase inspect db long-running-queries --linked
-
-# Blocking queries
-npx --prefix .venv_supabase supabase inspect db blocking --linked
-
-# Performance outliers
-npx --prefix .venv_supabase supabase inspect db outliers --linked
+# Generate types from cloud schema
+npx supabase gen types typescript --linked > supabase/types/database.ts
 ```
 
----
+## Recovery Procedures
 
-## TypeScript Types Generation
+### Hard Reset (Local Only)
 
-After schema changes, regenerate types:
+**Warning**: This destroys all local data.
 
 ```bash
-# Generate types from remote database
-npx --prefix .venv_supabase supabase gen types typescript --linked > src/types/database.ts
+# macOS/Linux
+CONFIRM_RESET=true npm run supabase:reset:hard
 
-# Or save to custom location (for Edge Functions)
-npx --prefix .venv_supabase supabase gen types typescript --linked > supabase/types/database.ts
+# Windows PowerShell
+$env:CONFIRM_RESET="true"; npm run supabase:reset:hard
+
+# Windows CMD
+set CONFIRM_RESET=true && npm run supabase:reset:hard
 ```
 
-**Note**: For Edge Functions (Deno), you may want to save types to:
-- `supabase/types/database.ts` (recommended for this project)
-- Or import directly in Edge Functions
+The script requires:
+1. `CONFIRM_RESET=true` environment variable
+2. Type "yes" confirmation
 
----
-
-## Common Workflows
-
-### Initial Setup (First Time)
+### Reseed Database
 
 ```bash
-# 1. Login
-npx --prefix .venv_supabase supabase login
-
-# 2. Link project
-npx --prefix .venv_supabase supabase link --project-ref opaxtxfxropmjrrqlewh
-
-# 3. Pull existing schema
-npx --prefix .venv_supabase supabase db pull
-
-# 4. Generate types
-npx --prefix .venv_supabase supabase gen types typescript --linked > supabase/types/database.ts
+# Reset and reseed
+npm run supabase:seed
 ```
 
-### Daily Development
+### Database Snapshot (Backup)
+
+Before risky changes, create a snapshot:
 
 ```bash
-# 1. Create migration
-npx --prefix .venv_supabase supabase migration new add_feature
+# Create backup
+npx supabase db dump --local --file backups/local-$(date +%F-%H%M).sql
 
-# 2. Edit migration file
-# ... write SQL ...
-
-# 3. Push to remote
-npx --prefix .venv_supabase supabase db push
-
-# 4. Regenerate types
-npx --prefix .venv_supabase supabase gen types typescript --linked > supabase/types/database.ts
+# Restore from backup
+npx supabase db reset --file backups/local-2025-01-09-1400.sql
 ```
 
-### Before Deployment
+## Environment Variables
+
+### Local Development
+
+For local development, use `.env.local`:
+
+```env
+# Local Supabase (auto-generated by 'supabase start')
+SUPABASE_URL=http://localhost:65430
+SUPABASE_ANON_KEY=<check 'npm run supabase:status'>
+SUPABASE_SERVICE_ROLE_KEY=<check 'npm run supabase:status'>
+
+# API Keys (same as cloud)
+OPENAI_API_KEY=your_key_here
+GEMINI_API_KEY=your_key_here
+```
+
+**Never store SERVICE_ROLE_KEY in .env.local for production use.**
+
+### Cloud Deployment
+
+For cloud, use `.env.cloud` (git-ignored):
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+```
+
+### Environment Detection
+
+In your code, detect environment:
+
+```typescript
+const isLocal = process.env.NODE_ENV === 'development' || 
+                process.env.VITE_ENV === 'local';
+
+const supabaseUrl = isLocal 
+  ? 'http://localhost:65430'
+  : process.env.SUPABASE_URL;
+```
+
+## TypeScript Types
+
+### Generate Types
 
 ```bash
-# 1. Check migration status
-npx --prefix .venv_supabase supabase migration list
+# From local schema
+npm run supabase:types
 
-# 2. Push any pending migrations
-npx --prefix .venv_supabase supabase db push
-
-# 3. Verify database health
-npx --prefix .venv_supabase supabase inspect db table-stats --linked
-
-# 4. Update types
-npx --prefix .venv_supabase supabase gen types typescript --linked > supabase/types/database.ts
+# From cloud schema
+npx supabase gen types typescript --linked > supabase/types/database.ts
 ```
 
-### Debugging Issues
+### Using Types
 
-```bash
-# Check for blocking queries
-npx --prefix .venv_supabase supabase inspect db blocking --linked
+```typescript
+import { Database } from '../supabase/types/database';
 
-# Find slow queries
-npx --prefix .venv_supabase supabase inspect db outliers --linked
-
-# View table stats
-npx --prefix .venv_supabase supabase inspect db table-stats --linked
+type Tables = Database['public']['Tables'];
+type Profiles = Tables['profiles']['Row'];
 ```
 
----
+## FAQ
 
-## Local Development (Optional - Requires Docker)
+### Studio won't open
 
-If you want to test migrations locally:
+**Solution:**
+1. Check if Supabase is running: `npm run supabase:status`
+2. Check port 65433 is not in use
+3. Restart: `npm run supabase:stop && npm run supabase:start`
 
-```bash
-# Start local Supabase
-npx --prefix .venv_supabase supabase start
+### PostgreSQL is busy
 
-# Reset local database (applies all migrations)
-npx --prefix .venv_supabase supabase db reset
+**Solution:**
+1. Check for long-running queries: `npm run supabase:logs`
+2. Restart Supabase: `npm run supabase:stop && npm run supabase:start`
+3. Check Docker resources (memory/CPU)
 
-# Stop local Supabase
-npx --prefix .venv_supabase supabase stop
-```
+### Diff empty but schema changed
 
-**Note**: Your project uses custom ports (65430-65437) to avoid conflicts with other Supabase projects.
+**Solution:**
+1. Ensure Docker is healthy: `docker ps`
+2. Use `--use-migra` flag: `npm run supabase:diff`
+3. Check shadow database port (65432) is available
+4. Reset shadow DB: `npx supabase db reset --shadow`
 
----
+### Migration history mismatch
 
-## Troubleshooting
-
-### "Project not linked"
-
-```bash
-npx --prefix .venv_supabase supabase link --project-ref opaxtxfxropmjrrqlewh
-```
-
-### "Migration history mismatch"
-
+**Solution:**
 ```bash
 # Check status
-npx --prefix .venv_supabase supabase migration list
+npx supabase migration list
 
 # Repair if needed
-npx --prefix .venv_supabase supabase migration repair --status applied <timestamp>
+npx supabase migration repair --status applied <timestamp>
 ```
 
-### "Types not updating"
+### Types not updating
 
-```bash
-# Regenerate from remote
-npx --prefix .venv_supabase supabase gen types typescript --linked > supabase/types/database.ts
-```
+**Solution:**
+1. Regenerate from local: `npm run supabase:types`
+2. Ensure local schema is up to date: `npm run supabase:push`
+3. Check output file path in script
 
-### "Permission denied"
+### Port already in use
 
-- Ensure you're logged in: `npx --prefix .venv_supabase supabase login`
-- Verify project access in Supabase Dashboard
-- Check project-ref is correct: `opaxtxfxropmjrrqlewh`
+**Solution:**
+1. Change ports in `supabase/config.toml`
+2. Or stop conflicting service
+3. Restart Supabase
 
-### "Password authentication failed"
+### Can't connect to local database
 
-- Verify `DATABASE_URL` in `.env` file
-- Check password matches Supabase Dashboard
-- Use `.\test-connection.ps1` to diagnose connection issues
+**Solution:**
+1. Verify Supabase is running: `npm run supabase:status`
+2. Check Docker is running
+3. Verify port 65431 is available
+4. Check connection string format
 
----
+## Available Scripts
 
-## Quick Reference
-
-| Task | Command |
-|------|---------|
-| Link project | `npx --prefix .venv_supabase supabase link --project-ref opaxtxfxropmjrrqlewh` |
-| Create migration | `npx --prefix .venv_supabase supabase migration new <name>` |
-| Pull schema | `npx --prefix .venv_supabase supabase db pull` |
-| Push migrations | `npx --prefix .venv_supabase supabase db push` |
-| List migrations | `npx --prefix .venv_supabase supabase migration list` |
-| Generate types | `npx --prefix .venv_supabase supabase gen types typescript --linked > supabase/types/database.ts` |
-| Check table stats | `npx --prefix .venv_supabase supabase inspect db table-stats --linked` |
-| Check slow queries | `npx --prefix .venv_supabase supabase inspect db outliers --linked` |
-| Repair migration | `npx --prefix .venv_supabase supabase migration repair --status applied <timestamp>` |
-| Test connection | `.\scripts\test-connection.ps1` |
-| Verify schema | `.\scripts\verify-schema.ps1 -PullSchema` |
-
----
+| Script | Command | Description |
+|--------|---------|-------------|
+| Start | `npm run supabase:start` | Start local Supabase |
+| Stop | `npm run supabase:stop` | Stop local Supabase |
+| Status | `npm run supabase:status` | Check status and URLs |
+| Studio | `npm run supabase:studio` | Open Supabase Studio |
+| Push | `npm run supabase:push` | Apply migrations to local |
+| Diff | `npm run supabase:diff` | Generate migration from diff |
+| Pull | `npm run supabase:pull` | Pull schema from remote |
+| Seed | `npm run supabase:seed` | Reset and seed database |
+| Reset | `npm run supabase:reset:hard` | Hard reset (requires confirmation) |
+| Logs | `npm run supabase:logs` | Follow database logs |
+| Types | `npm run supabase:types` | Generate TypeScript types |
+| Test RLS | `npm run supabase:test:rls` | Run RLS tests |
 
 ## Best Practices
 
-1. ✅ **Link project first** - Use `--linked` flag instead of `--db-url` for convenience
-2. ✅ **Pull existing schema** - Before creating new migrations, pull current schema
-3. ✅ **Generate types after changes** - Keep TypeScript types in sync
-4. ✅ **Use descriptive migration names**: `add_user_profiles`, `update_products_table`
-5. ✅ **Commit migration files to git** - Track schema changes in version control
-6. ✅ **Review migration SQL before pushing** - Double-check SQL before applying
-7. ✅ **Check migration status before deployment** - Ensure all migrations are applied
-8. ✅ **Monitor database stats regularly** - Use `inspect db` commands
-
----
+1. ✅ **Local first** - Always test locally before cloud push
+2. ✅ **Version lock** - Supabase CLI version locked in package.json
+3. ✅ **Migration files** - Commit all migration files to git
+4. ✅ **Test RLS** - Validate RLS policies before cloud push
+5. ✅ **Generate types** - Keep TypeScript types in sync
+6. ✅ **Use --linked** - Always use `--linked` flag for cloud operations
+7. ✅ **Environment separation** - Keep local and cloud env vars separate
+8. ✅ **Regular backups** - Create snapshots before risky changes
+9. ✅ **Descriptive names** - Use clear migration names
+10. ✅ **Review SQL** - Double-check migration SQL before applying
 
 ## Project-Specific Notes
 
 - **Project Reference**: `opaxtxfxropmjrrqlewh`
-- **Virtual Environment**: `.venv_supabase/` (local CLI installation)
+- **Custom Ports**: 65430-65437 (configured to avoid conflicts)
 - **Migration files**: `supabase/migrations/`
-- **Types output**: `supabase/types/database.ts` (recommended location)
-- **Custom ports**: 65430-65437 (configured to avoid conflicts)
-- **Connection**: Use session pooler (port 5432) as shown in dashboard
-- **Always use `--linked` flag** for remote operations after linking
-- **CLI commands**: Use `npx --prefix .venv_supabase supabase` for all commands
-
----
+- **Seed file**: `supabase/seed.sql`
+- **Types output**: `supabase/types/database.ts`
+- **RLS tests**: `tests/rls/run.sql`
+- **CLI version**: Locked in `package.json` devDependencies
 
 ## Next Steps
 
-1. **Link the project:**
+1. **Start local development:**
    ```bash
-   npx --prefix .venv_supabase supabase link --project-ref opaxtxfxropmjrrqlewh
+   npm install
+   npm run supabase:start
+   npm run supabase:push
    ```
 
-2. **Pull existing schema:**
+2. **Create your first migration:**
    ```bash
-   npx --prefix .venv_supabase supabase db pull
+   npm run supabase:diff
+   npm run supabase:push
    ```
 
-3. **Generate TypeScript types:**
+3. **Test RLS policies:**
    ```bash
-   npx --prefix .venv_supabase supabase gen types typescript --linked > supabase/types/database.ts
+   npm run supabase:test:rls
    ```
 
-4. **Verify setup:**
+4. **Generate types:**
    ```bash
-   npx --prefix .venv_supabase supabase migration list
-   npx --prefix .venv_supabase supabase status
+   npm run supabase:types
+   ```
+
+5. **When ready, push to cloud:**
+   ```bash
+   npx supabase link --project-ref opaxtxfxropmjrrqlewh
+   npx supabase db push --linked
    ```
 
 ---
 
 For more details: https://supabase.com/docs/guides/cli
-

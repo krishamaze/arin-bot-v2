@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Wingman Dating Helper",
+  "version": "1.0.0",
+  "description": "AI-powered dating chat assistant for Free4Talk",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://www.free4talk.com/*",
+    "https://opaxtxfxropmjrrqlewh.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [{
+    "matches": ["https://www.free4talk.com/*"],
+    "js": ["content.js"],
+    "css": ["floating-ui.css"],
+    "run_at": "document_idle",
+    "all_frames": false
+  }],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "Wingman Dating Helper"
+  },
+  "commands": {
+    "toggle-panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+W",
+        "mac": "Command+Shift+W"
+      },
+      "description": "Toggle Wingman panel"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
+

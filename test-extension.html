@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wingman Extension Test - Free4Talk Simulation</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 600px;
+            border: 1px solid #ddd;
+        }
+        
+        .message-list-box {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        
+        .message[data-message-id] {
+            border-left: 3px solid #667eea;
+        }
+        
+        .user {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        
+        .user .name.primary span {
+            font-weight: bold;
+            color: #333;
+            margin-right: 10px;
+        }
+        
+        .text.main-content {
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .text.main-content .html.text-overflow {
+            word-wrap: break-word;
+        }
+        
+        .input-area {
+            border-top: 1px solid #ddd;
+            padding: 15px;
+            background: white;
+        }
+        
+        .ant-mentions.input-box {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .ant-mentions.input-box textarea {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: none;
+            font-family: inherit;
+            font-size: 14px;
+        }
+        
+        .send-box {
+            padding: 10px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .send-box:hover {
+            background: #5568d3;
+        }
+        
+        .test-controls {
+            padding: 20px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .test-controls h3 {
+            margin-bottom: 10px;
+        }
+        
+        .test-controls button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .test-controls button:hover {
+            background: #5568d3;
+        }
+        
+        .log-area {
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            margin: 2px 0;
+        }
+        
+        .log-entry.success {
+            color: #4ec9b0;
+        }
+        
+        .log-entry.error {
+            color: #f48771;
+        }
+        
+        .log-entry.info {
+            color: #569cd6;
+        }
+    </style>
+    <link rel="stylesheet" href="chrome-extension/floating-ui.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Wingman Extension Test Page</h1>
+            <p>Simulated Free4Talk Environment</p>
+        </div>
+        
+        <div class="test-controls">
+            <h3>Test Controls</h3>
+            <button onclick="addUserMessage('wingman/')">Send "wingman/" (Initialize)</button>
+            <button onclick="addGirlMessage('Hi there! How are you?')">Girl: Hi message</button>
+            <button onclick="addGirlMessage('What do you do for fun?')">Girl: Question</button>
+            <button onclick="addUserMessage('I like coding and traveling')">User: Response</button>
+            <button onclick="addGirlMessage('That sounds interesting! Tell me more.')">Girl: Follow-up</button>
+            <button onclick="clearMessages()">Clear Messages</button>
+            <button onclick="checkExtensionStatus()">Check Extension Status</button>
+        </div>
+        
+        <div class="chat-container">
+            <div class="message-list-box" id="messageList">
+                <div class="message" data-message-id="system:system:1731150000000">
+                    <div class="user">
+                        <span class="name primary"><span>System</span></span>
+                    </div>
+                    <div class="text main-content">
+                        <div class="html text-overflow">Welcome to the test chat. Type "wingman/" to activate the extension.</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="input-area">
+                <div class="ant-mentions input-box">
+                    <textarea id="chatInput" placeholder="Type a message..."></textarea>
+                    <button class="send-box" onclick="sendMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="log-area" id="logArea">
+            <div class="log-entry info">Waiting for extension to load...</div>
+        </div>
+    </div>
+    
+    <script>
+        // Mock Chrome APIs for testing
+        if (typeof chrome === 'undefined') {
+            window.chrome = {
+                storage: {
+                    local: {
+                        get: (keys, callback) => {
+                            const result = {};
+                            keys.forEach(key => {
+                                const value = localStorage.getItem(key);
+                                if (value) result[key] = JSON.parse(value);
+                            });
+                            callback(result);
+                        },
+                        set: (data, callback) => {
+                            Object.keys(data).forEach(key => {
+                                localStorage.setItem(key, JSON.stringify(data[key]));
+                            });
+                            if (callback) callback();
+                        }
+                    }
+                },
+                runtime: {
+                    onMessage: {
+                        addListener: () => {}
+                    }
+                }
+            };
+        }
+        
+        let messageIdCounter = 1;
+        let currentUserId = 'user123';
+        let currentGirlId = 'girl456';
+        let currentUsername = 'TestUser';
+        let currentGirlName = 'TestGirl';
+        
+        function addLog(message, type = 'info') {
+            const logArea = document.getElementById('logArea');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logArea.appendChild(entry);
+            logArea.scrollTop = logArea.scrollHeight;
+        }
+        
+        function createMessage(text, username, platformId, timestamp = Date.now()) {
+            const messageList = document.getElementById('messageList');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.setAttribute('data-message-id', `${platformId}:${platformId}:${timestamp}`);
+            
+            messageDiv.innerHTML = `
+                <div class="user">
+                    <span class="name primary"><span>${username}</span></span>
+                </div>
+                <div class="text main-content">
+                    <div class="html text-overflow">${text}</div>
+                </div>
+            `;
+            
+            messageList.appendChild(messageDiv);
+            messageList.scrollTop = messageList.scrollHeight;
+            
+            // Trigger extension's message detection
+            setTimeout(() => {
+                if (window.wingman && window.wingman.status) {
+                    const status = window.wingman.status();
+                    addLog(`Extension detected message from ${username}`, 'info');
+                    if (status.enabled) {
+                        addLog('Extension is active', 'success');
+                    }
+                }
+            }, 100);
+            
+            return messageDiv;
+        }
+        
+        function addUserMessage(text) {
+            createMessage(text, currentUsername, currentUserId);
+            addLog(`User message added: "${text}"`, 'info');
+        }
+        
+        function addGirlMessage(text) {
+            createMessage(text, currentGirlName, currentGirlId);
+            addLog(`Girl message added: "${text}"`, 'info');
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            if (!text) return;
+            
+            addUserMessage(text);
+            input.value = '';
+        }
+        
+        function clearMessages() {
+            const messageList = document.getElementById('messageList');
+            messageList.innerHTML = '';
+            addLog('Messages cleared', 'info');
+        }
+        
+        function checkExtensionStatus() {
+            if (window.wingman) {
+                const status = window.wingman.status();
+                addLog('Extension Status:', 'info');
+                addLog(`  Enabled: ${status.enabled}`, 'info');
+                addLog(`  Conversation ID: ${status.conversationId || 'None'}`, 'info');
+                addLog(`  User ID: ${status.userId || 'None'}`, 'info');
+                addLog(`  Girl ID: ${status.girlId || 'None'}`, 'info');
+                addLog(`  Panel Visible: ${status.isVisible}`, 'info');
+            } else {
+                addLog('Extension not loaded yet', 'error');
+            }
+        }
+        
+        // Allow Enter key to send message
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // Load extension content script
+        function loadExtension() {
+            addLog('Loading extension content script...', 'info');
+            
+            // Create script tag to load content.js
+            const script = document.createElement('script');
+            script.src = 'chrome-extension/content.js';
+            script.onload = () => {
+                addLog('Extension content script loaded successfully!', 'success');
+                addLog('Waiting for extension to initialize...', 'info');
+                
+                // Wait a bit for extension to initialize
+                setTimeout(() => {
+                    if (window.wingman) {
+                        addLog('Extension initialized!', 'success');
+                        addLog('Type "wingman/" in a message to activate', 'info');
+                        addLog('Use wingman.help() in console for commands', 'info');
+                    } else {
+                        addLog('Extension loaded but wingman object not found', 'error');
+                    }
+                }, 1000);
+            };
+            script.onerror = () => {
+                addLog('Failed to load extension content script', 'error');
+                addLog('Make sure chrome-extension/content.js exists', 'error');
+            };
+            document.head.appendChild(script);
+        }
+        
+        // Wait for DOM to be ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', loadExtension);
+        } else {
+            loadExtension();
+        }
+        
+        // Override console.log to capture extension logs
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            if (args[0] && args[0].includes && args[0].includes('[Wingman Extension]')) {
+                addLog(args.join(' '), 'info');
+            }
+        };
+    </script>
+</body>
+</html>
+
+

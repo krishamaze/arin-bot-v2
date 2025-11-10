@@ -1,16 +1,27 @@
-# Arin Bot v2 🤖
+# Arin Bot v2 🤖 → Wingman Dating Helper 💬
 
-A sophisticated AI chatbot powered by Supabase Edge Functions with multi-provider LLM support (OpenAI & Google Gemini). The bot features intelligent conversation management, context-aware responses, and automatic fallback mechanisms.
+A sophisticated AI chatbot powered by Supabase Edge Functions, now transformed into a **Wingman Dating Chat Helper** with Gemini 2.5 caching, intelligent conversation analysis, and personalized dating suggestions.
+
+**New in v2**: Wingman dating assistant with AI-powered reply suggestions, conversation analysis, and coaching tips for online dating conversations.
 
 ## 🌟 Features
 
+### Wingman Dating Helper (v2)
+- **AI-Powered Suggestions**: Get personalized reply suggestions based on conversation context
+- **Conversation Analysis**: Understand her vibe and the conversation flow
+- **Coaching Tips**: Learn dating communication skills with actionable advice
+- **Gemini 2.5 Caching**: Optimized API usage with explicit caching (75%+ cost reduction)
+- **Chrome Extension**: Beautiful floating UI panel with draggable interface
+- **Smart Message Detection**: Automatic detection of user and match messages
+- **JSONB Indexing**: Optimized database queries for profile data
+
+### Legacy Features (v1 - Still Available)
 - **Multi-Provider LLM Support**: Seamlessly switches between OpenAI GPT-4 and Google Gemini
 - **Intelligent Context Management**: Maintains conversation history and user summaries
 - **Automatic Fallback**: Gracefully handles API failures by switching providers
 - **Browser Client Integration**: Userscript for real-time chat monitoring and interaction
 - **Configurable Personality**: YAML-based prompt and model configuration
 - **Event Batching**: Efficient message processing with configurable batch sizes
-- **Prompt Caching**: Optimized API usage with intelligent caching strategies
 
 ## 📁 Project Structure
 
@@ -32,17 +43,42 @@ arin-bot-v2/
 ├── supabase/
 │   ├── config.toml                # Supabase configuration
 │   ├── migrations/                # Database migrations
+│   │   └── 20251109000000_wingman_schema.sql  # Wingman schema
 │   └── functions/
-│       └── chat-api/              # Main Edge Function
+│       ├── _shared/               # Shared utilities (v2)
+│       │   ├── supabaseClient.ts  # Supabase client
+│       │   ├── geminiClient.ts    # Gemini client with caching
+│       │   ├── schemas.ts         # Zod validation schemas
+│       │   ├── prompts.ts         # Wingman prompt
+│       │   └── utils.ts           # Helper functions
+│       ├── chat-api-v2/           # Wingman Edge Function (v2)
+│       │   ├── index.ts           # Main API handler
+│       │   └── deno.json          # Deno configuration
+│       └── chat-api/              # Legacy Edge Function (v1)
 │           ├── config/            # YAML configurations
 │           │   ├── models.yaml    # LLM model settings
 │           │   └── prompts.yaml   # System prompts
 │           ├── services/          # Service modules
 │           │   ├── config/        # Config loader
 │           │   └── llm/           # LLM clients
-│           ├── fftBot-client.js   # Browser userscript
 │           ├── index.ts           # Main API handler
 │           └── deno.json          # Deno configuration
+├── 📂 client/                     # Browser Client Scripts
+│   └── fftBot-client.js           # Wingman console script (v2)
+├── 📂 chrome-extension/           # Chrome Extension (v2)
+│   ├── manifest.json              # Extension manifest
+│   ├── content.js                 # Content script
+│   ├── background.js              # Service worker
+│   ├── floating-ui.css            # Panel styles
+│   └── icons/                     # Extension icons
+├── 📂 scripts/                    # Utility Scripts
+│   ├── test-wingman-v2.ps1        # Test v2 endpoints
+│   ├── deploy-wingman-v2.ps1      # Deploy v2
+│   ├── verify-wingman-schema.ps1  # Verify schema
+│   └── verify-wingman-imports.ps1 # Verify imports
+├── 📂 docs/                       # Documentation
+│   ├── WINGMAN_SCHEMA.md          # Wingman schema docs
+│   └── WINGMAN_DEPLOYMENT.md      # Deployment guide
 ├── .vscode/                       # VS Code settings
 ├── .env                           # Environment variables (not in git)
 ├── .gitignore                     # Git ignore rules
@@ -53,12 +89,42 @@ arin-bot-v2/
 
 ### Prerequisites
 
-- [Supabase CLI](https://supabase.com/docs/guides/cli) (v2.54.11+)
-- [Deno](https://deno.land/) (v2.x)
-- Node.js (for package management)
-- PostgreSQL database (via Supabase)
+- [Node.js](https://nodejs.org/) (v18+)
+- [Deno](https://deno.land/) (v2.x) (for Edge Functions)
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (installed via npm)
+- Supabase account and project
 
-### Installation
+**Note**: This project uses **cloud-only development** with transaction pooler. No Docker required.
+
+### Quickstart (Cloud Development)
+
+**Cloud-only workflow**: Work directly against your cloud Supabase project.
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Login to Supabase (one-time)
+npm run supabase:login
+
+# 3. Link to your project (one-time)
+npm run supabase:link
+
+# 4. Set up environment variables
+# Create .env file with your project credentials
+# See "Environment Variables" section below
+
+# 5. Pull current schema
+npm run supabase:pull
+
+# 6. Generate TypeScript types
+npm run supabase:types
+
+# 7. Check project status
+npm run supabase:status
+```
+
+### Installation (Detailed)
 
 1. **Clone the repository**
    ```bash
@@ -66,33 +132,166 @@ arin-bot-v2/
    cd arin-bot-v2
    ```
 
-2. **Set up environment variables**
+2. **Install dependencies**
    ```bash
-   cp .env.example .env
-   # Edit .env with your credentials
+   npm install
    ```
 
-   Required variables:
-   - `SUPABASE_URL`: Your Supabase project URL
-   - `SUPABASE_SERVICE_ROLE_KEY`: Service role key
-   - `OPENAI_API_KEY`: OpenAI API key
-   - `GEMINI_API_KEY`: Google Gemini API key
-
-3. **Link to Supabase project**
+3. **Authenticate with Supabase CLI**
    ```bash
-   supabase login
-   supabase link --project-ref opaxtxfxropmjrrqlewh
+   # Login to Supabase (opens browser)
+   npm run supabase:login
+   
+   # Or set ACCESS_TOKEN environment variable
+   # Get token from: https://supabase.com/dashboard/account/tokens
+   export SUPABASE_ACCESS_TOKEN=your_access_token_here
    ```
 
-4. **Pull database schema**
+4. **Link to your project**
    ```bash
-   supabase db pull
+   # Link to your Supabase project
+   npm run supabase:link
+   # Project ref: opaxtxfxropmjrrqlewh
    ```
 
-5. **Deploy Edge Functions**
-   ```bash
-   supabase functions deploy chat-api
+5. **Set up environment variables**
+   
+   Create `.env` file with:
+   ```env
+   # Supabase Project (from Dashboard → Settings → API)
+   SUPABASE_URL=https://opaxtxfxropmjrrqlewh.supabase.co
+   SUPABASE_ANON_KEY=your_anon_key_here
+   
+   # API Keys
+   OPENAI_API_KEY=your_openai_key
+   GEMINI_API_KEY=your_gemini_key
    ```
+   
+   **Important**:
+   - Use **ANON_KEY** for app runtime (client-side operations)
+   - Use **ACCESS_TOKEN** for CLI operations (set via `supabase login` or env var)
+   - **Never commit** `.env` file to git
+
+6. **Pull current schema**
+   ```bash
+   # Pull existing schema from cloud
+   npm run supabase:pull
+   ```
+
+7. **Generate TypeScript types**
+   ```bash
+   # Generate types from cloud schema
+   npm run supabase:types
+   ```
+
+### Development Workflow
+
+#### Create and Apply Migrations
+
+```bash
+# 1. Create new migration
+npm run supabase:migration:new add_feature_name
+
+# 2. Edit migration file in supabase/migrations/
+
+# 3. Push to cloud
+npm run supabase:push
+
+# 4. Regenerate types
+npm run supabase:types
+```
+
+#### Generate Migration from Schema Changes
+
+```bash
+# Generate migration from database diff
+npm run supabase:diff
+
+# Review generated migration, then push
+npm run supabase:push
+```
+
+#### Check Migration Status
+
+```bash
+# List all migrations
+npm run supabase:migration:list
+```
+
+#### View Logs
+
+```bash
+# View cloud logs
+npm run supabase:logs
+```
+
+#### Deploy Edge Functions
+
+```bash
+# Deploy specific function
+npm run supabase:functions:deploy chat-api-v2
+
+# Serve functions locally for testing
+npm run supabase:functions:serve
+```
+
+### Environment Variables
+
+#### CLI Authentication (ACCESS_TOKEN)
+
+The Supabase CLI uses `ACCESS_TOKEN` for authentication:
+
+- **Method 1**: Login via CLI (recommended)
+  ```bash
+  npm run supabase:login
+  ```
+  This stores the token securely in your system.
+
+- **Method 2**: Environment variable
+  ```bash
+  # macOS/Linux
+  export SUPABASE_ACCESS_TOKEN=your_access_token_here
+  
+  # Windows PowerShell
+  $env:SUPABASE_ACCESS_TOKEN="your_access_token_here"
+  
+  # Windows CMD
+  set SUPABASE_ACCESS_TOKEN=your_access_token_here
+  ```
+
+Get your access token from: https://supabase.com/dashboard/account/tokens
+
+#### App Runtime (ANON_KEY)
+
+Your application uses `SUPABASE_ANON_KEY` for runtime operations:
+
+```env
+SUPABASE_URL=https://opaxtxfxropmjrrqlewh.supabase.co
+SUPABASE_ANON_KEY=your_anon_key_here
+```
+
+Get these from: Supabase Dashboard → Settings → API
+
+#### Transaction Pooler
+
+For database connections, use the **Transaction Pooler** connection string:
+
+- **Port**: 5432 (transaction pooler)
+- **Connection String**: Available in Dashboard → Settings → Database → Connection Pooling
+
+**Note**: Use transaction pooler for better connection management and performance.
+
+### Database Connection
+
+This project uses the **transaction pooler** for database connections:
+
+- **Port**: 5432
+- **Connection String**: `postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres`
+- **Mode**: Transaction (recommended for serverless)
+
+Get connection string from: Supabase Dashboard → Settings → Database → Connection Pooling
+
+See [docs/SUPABASE_CLOUD_WORKFLOW.md](docs/SUPABASE_CLOUD_WORKFLOW.md) for complete cloud workflow guide.
 
 ### 🛡️ Deployment Safety
 
@@ -197,7 +396,7 @@ system_instructions:
 The browser userscript (`fftBot-client.js`) monitors chat messages and sends them to the Edge Function:
 
 1. Install a userscript manager (Tampermonkey, Violentmonkey)
-2. Load `supabase/functions/chat-api/fftBot-client.js`
+2. Load `client/fftBot-client.js`
 3. Navigate to your chat platform
 4. Type `hi/` to activate the bot
 
@@ -214,21 +413,45 @@ See [docs/DATABASE_TABLES.md](docs/DATABASE_TABLES.md) for detailed schema infor
 
 ## 🔄 API Endpoints
 
-### POST `/chat-api`
+### Wingman v2 Endpoints
 
-Process chat events and generate bot responses.
+#### POST `/v1/chat-api-v2/init`
+
+Initialize Wingman for a user.
 
 **Request:**
 ```json
 {
-  "botPlatformId": "bot-123",
-  "roomPath": "/room/path",
-  "events": [
+  "platformId": "user-123",
+  "username": "John Doe",
+  "roomPath": "/room/123"
+}
+```
+
+**Response:**
+```json
+{
+  "conversationId": "uuid",
+  "userId": "user-123",
+  "status": "initialized"
+}
+```
+
+#### POST `/v1/chat-api-v2/`
+
+Get Wingman suggestions.
+
+**Request:**
+```json
+{
+  "conversationId": "uuid",
+  "userId": "user-123",
+  "girlId": "girl-456",
+  "girlName": "Jane",
+  "recentMessages": [
     {
-      "type": "message",
-      "username": "user1",
-      "platformId": "user-123",
-      "text": "Hello!",
+      "sender": "girl",
+      "text": "Hey! How are you?",
       "timestamp": 1234567890
     }
   ]
@@ -238,19 +461,65 @@ Process chat events and generate bot responses.
 **Response:**
 ```json
 {
-  "strategy": "ENGAGE",
-  "messages": [
+  "analysis": {
+    "her_last_message_feeling": "curious",
+    "conversation_vibe": "warm and engaging",
+    "recommended_goal": "build rapport"
+  },
+  "suggestions": [
     {
-      "text": "hey! how's it going?",
-      "delayMs": 1500
+      "type": "Playful/Humorous",
+      "text": "I'm doing great! Just finished work, how about you?",
+      "rationale": "Shows interest and asks a follow-up question"
     }
-  ]
+  ],
+  "wingman_tip": "Try to ask open-ended questions to keep the conversation flowing"
+}
+```
+
+### Legacy v1 Endpoints
+
+#### POST `/chat-api`
+
+Process chat events and generate bot responses (legacy).
+
+**Request:**
+```json
+{
+  "botPlatformId": "bot-123",
+  "roomPath": "/room/path",
+  "events": [...]
+}
+```
+
+**Response:**
+```json
+{
+  "strategy": "ENGAGE",
+  "messages": [...]
 }
 ```
 
 ## 🧪 Testing
 
-Run tests for the Edge Function:
+### Wingman v2 Testing
+
+```powershell
+# Test all endpoints
+.\scripts\test-wingman-v2.ps1 -TestAll
+
+# Test individual endpoints
+.\scripts\test-wingman-v2.ps1 -TestInit
+.\scripts\test-wingman-v2.ps1 -TestAnalysis
+
+# Verify schema
+.\scripts\verify-wingman-schema.ps1
+
+# Verify imports
+.\scripts\verify-wingman-imports.ps1
+```
+
+### Legacy v1 Testing
 
 ```bash
 deno test --allow-all supabase/functions/chat-api/
@@ -258,6 +527,13 @@ deno test --allow-all supabase/functions/chat-api/
 
 ## 📚 Documentation
 
+### Wingman v2
+- [Wingman Schema](docs/WINGMAN_SCHEMA.md) - Complete schema documentation
+- [Wingman Deployment](docs/WINGMAN_DEPLOYMENT.md) - Deployment guide
+- [Implementation Summary](WINGMAN_IMPLEMENTATION_SUMMARY.md) - Implementation status
+- [Chrome Extension README](chrome-extension/README.md) - Extension documentation
+
+### Legacy v1
 - [Supabase CLI Guide](docs/SUPABASE_CLI_GUIDE.md) - Complete CLI reference
 - [Database Tables](docs/DATABASE_TABLES.md) - Schema documentation
 - [Supabase Usage](docs/SUPABASE_USAGE.md) - Integration patterns

@@ -1,0 +1,388 @@
+/* ===== WINGMAN EXTENSION - Floating UI Styles ===== */
+
+#wingman-extension-panel {
+  position: fixed !important;
+  width: 420px;
+  max-width: calc(100vw - 40px); /* Safe-area padding */
+  max-height: calc(100vh - 40px); /* Safe-area padding */
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  z-index: 2147483647 !important; /* Maximum safe z-index */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+  backdrop-filter: blur(10px);
+  /* Mobile-friendly touch targets */
+  touch-action: none;
+}
+
+/* Header */
+.wingman-header {
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  flex-shrink: 0;
+}
+
+.drag-handle {
+  cursor: grab;
+  user-select: none;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+
+.drag-handle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 1);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+.wingman-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-controls {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.toggle-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.wingman-status {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  flex-shrink: 0;
+}
+
+.wingman-status.active {
+  background: #10b981;
+  font-weight: 600;
+}
+
+/* Content Area */
+.wingman-content {
+  padding: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
+  min-height: 0;
+  /* Custom scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.wingman-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.wingman-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wingman-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.wingman-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* Analysis Section */
+.analysis {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.analysis strong {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.analysis > div {
+  margin: 4px 0;
+}
+
+/* Suggestions */
+.suggestions-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.suggestion {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 14px;
+  border-radius: 10px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.suggestion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+
+.suggestion-type {
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.copy-btn {
+  background: rgba(255, 255, 255, 0.9);
+  color: #667eea;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.copy-btn:hover {
+  background: white;
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.copy-btn:active {
+  transform: scale(0.95);
+}
+
+.suggestion-text {
+  font-size: 15px;
+  margin: 10px 0;
+  line-height: 1.5;
+  font-weight: 500;
+  word-wrap: break-word;
+}
+
+.suggestion-rationale {
+  font-size: 12px;
+  opacity: 0.9;
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 8px;
+  word-wrap: break-word;
+}
+
+/* Wingman Tip */
+.wingman-tip {
+  background: rgba(16, 185, 129, 0.2);
+  padding: 12px;
+  border-radius: 8px;
+  margin-top: 16px;
+  font-size: 13px;
+  border-left: 3px solid #10b981;
+  word-wrap: break-word;
+}
+
+.wingman-tip strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* Placeholder */
+.placeholder {
+  text-align: center;
+  padding: 60px 20px;
+  opacity: 0.7;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+  #wingman-extension-panel {
+    width: calc(100vw - 20px);
+    max-width: 100%;
+    max-height: calc(100vh - 20px);
+    border-radius: 12px;
+  }
+  
+  .wingman-header {
+    padding: 10px 12px;
+  }
+  
+  .wingman-header h3 {
+    font-size: 14px;
+  }
+  
+  .wingman-content {
+    padding: 12px;
+  }
+  
+  .suggestion {
+    padding: 12px;
+  }
+  
+  .suggestion-header {
+    flex-wrap: wrap;
+  }
+  
+  .copy-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
+
+/* Safe area for mobile devices with notches */
+@supports (padding: max(0px)) {
+  #wingman-extension-panel {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
+
+/* Prevent panel from being selected */
+#wingman-extension-panel * {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Allow text selection in content areas */
+.suggestion-text,
+.suggestion-rationale,
+.wingman-tip,
+.analysis {
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
+  user-select: text;
+}
+
+/* Animation for panel appearance */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+#wingman-extension-panel {
+  animation: slideIn 0.3s ease-out;
+}
+
+/* Loading state */
+.wingman-content.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+}
+
+.error-message {
+  padding: 20px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 8px;
+  border-left: 3px solid #ef4444;
+  color: #fee2e2;
+  margin: 10px 0;
+}
+
+.error-message button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.error-message button:hover {
+  background: #5568d3;
+}
+
+.wingman-content.loading::after {
+  content: '';
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

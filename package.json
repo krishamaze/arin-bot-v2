@@ -1,0 +1,30 @@
+{
+  "name": "arin-bot-v2",
+  "version": "2.0.0",
+  "description": "Wingman Dating Helper with Supabase Edge Functions",
+  "scripts": {
+    "generate-icons": "node chrome-extension/generate-icons.js",
+    "supabase:login": "npx supabase login",
+    "supabase:link": "npx supabase link --project-ref opaxtxfxropmjrrqlewh",
+    "supabase:status": "npx supabase status --linked",
+    "supabase:push": "npx supabase db push --linked",
+    "supabase:diff": "npx supabase db diff --linked --use-migra",
+    "supabase:pull": "npx supabase db pull --linked",
+    "supabase:migration:new": "npx supabase migration new",
+    "supabase:migration:list": "npx supabase migration list --linked",
+    "supabase:types": "npx supabase gen types typescript --linked > supabase/types/database.ts",
+    "supabase:types:local": "npx supabase gen types typescript --local > supabase/types/database.ts",
+    "supabase:logs": "npx supabase logs --linked",
+    "supabase:inspect:db": "npx supabase inspect db --linked",
+    "supabase:studio": "npx supabase studio --linked",
+    "supabase:functions:deploy": "npx supabase functions deploy",
+    "supabase:functions:serve": "npx supabase functions serve"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.0",
+    "supabase": "^2.46.10"
+  }
+}

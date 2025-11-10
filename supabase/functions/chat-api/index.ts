@@ -374,41 +374,142 @@ async function getCachedInstructionsFromConfig() {
   }
 }
 
+// Phase 2.1: Define Gemini Model Fallback Chain
+// Note: Model names should match exactly what's in models.yaml
+const GEMINI_FALLBACK_CHAIN = [
+  'models/gemini-2.5-flash-001',      // Primary: Fast, cost-efficient, GA
+  'models/gemini-2.5-pro-001',        // Secondary: Most capable, slower/expensive, GA
+  'models/gemini-2.0-flash-001',      // Tertiary: Previous gen, stable (fallback)
+  'models/gemini-1.5-flash-001'       // Final: Older stable version (fallback)
+];
+
 async function getModelConfig() {
+  // Phase 1.1: Diagnostic logging
+  const envProvider = Deno.env.get('DEFAULT_LLM_PROVIDER');
+  const geminiKeyExists = !!Deno.env.get('GEMINI_API_KEY');
+  const openaiKeyExists = !!Deno.env.get('OPENAI_API_KEY');
+  
+  console.log('[CONFIG] Model selection diagnostic:', {
+    envProvider: envProvider || 'not set',
+    geminiKeyExists,
+    openaiKeyExists,
+    timestamp: new Date().toISOString()
+  });
+  
   try {
     const modelsConfig = await configLoader.loadModels();
     console.log('[CONFIG] Using model config v' + modelsConfig.version);
-    const primary = modelsConfig.production;
     
-    // Determine fallback: if primary is gemini, use OpenAI experimental (or vice versa)
-    let fallback;
-    if (primary.provider === 'gemini') {
-      // If primary is Gemini, fallback to OpenAI
-      fallback = modelsConfig.experimental?.provider === 'openai' 
-        ? modelsConfig.experimental 
-        : modelsConfig.gemini_production || primary;
+    const yamlProvider = modelsConfig.production?.provider;
+    console.log('[CONFIG] YAML production provider:', yamlProvider);
+    
+    // Phase 2.2: Determine primary provider - env var takes highest precedence
+    const defaultProvider = envProvider || yamlProvider || 'gemini';
+    console.log('[CONFIG] Determined default provider:', defaultProvider);
+    
+    // Always use Gemini as primary (env var can override, but default to Gemini)
+    let primary;
+    if (defaultProvider === 'gemini' || !envProvider) {
+      // Use Gemini configuration
+      primary = modelsConfig.gemini_production || modelsConfig.production;
+      // Ensure provider is gemini
+      if (primary.provider !== 'gemini') {
+        primary = { ...primary, provider: 'gemini' };
+      }
+      // Ensure model is from fallback chain if not set
+      if (!primary.model || !primary.model.startsWith('models/gemini-')) {
+        primary.model = GEMINI_FALLBACK_CHAIN[0];
+      }
+    } else if (defaultProvider === 'openai' && envProvider === 'openai') {
+      // Only use OpenAI if explicitly set via env var
+      console.warn('[CONFIG] OpenAI requested but should prefer Gemini. Using Gemini instead.');
+      primary = modelsConfig.gemini_production || modelsConfig.production;
+      primary = { ...primary, provider: 'gemini', model: GEMINI_FALLBACK_CHAIN[0] };
     } else {
-      // If primary is OpenAI, fallback to Gemini
-      fallback = modelsConfig.gemini_production || modelsConfig.experimental || primary;
+      primary = modelsConfig.production;
     }
+    
+    console.log('[CONFIG] Selected primary provider:', primary.provider, 'model:', primary.model);
+    
+    // Phase 2.2: Build Gemini fallback chain (never OpenAI)
+    // Find current model in chain and get next models
+    const currentModelIndex = GEMINI_FALLBACK_CHAIN.findIndex(m => m === primary.model);
+    const fallbackModels = currentModelIndex >= 0 
+      ? GEMINI_FALLBACK_CHAIN.slice(currentModelIndex + 1)
+      : GEMINI_FALLBACK_CHAIN.slice(1);
+    
+    // Get fallback config from YAML or use first fallback model
+    let fallback;
+    if (fallbackModels.length > 0 && modelsConfig.gemini_pro) {
+      // Use gemini_pro if available and not the primary
+      if (modelsConfig.gemini_pro.model !== primary.model) {
+        fallback = modelsConfig.gemini_pro;
+      } else if (modelsConfig.gemini_production && modelsConfig.gemini_production.model !== primary.model) {
+        fallback = modelsConfig.gemini_production;
+      } else {
+        // Create fallback config from first fallback model
+        fallback = {
+          ...primary,
+          model: fallbackModels[0],
+          provider: 'gemini'
+        };
+      }
+    } else if (modelsConfig.gemini_production && modelsConfig.gemini_production.model !== primary.model) {
+      fallback = modelsConfig.gemini_production;
+    } else {
+      // Default fallback: use next model in chain or same model
+      fallback = {
+        ...primary,
+        model: fallbackModels[0] || primary.model,
+        provider: 'gemini'
+      };
+    }
+    
+    // Ensure fallback is always Gemini
+    if (fallback.provider !== 'gemini') {
+      console.warn('[CONFIG] Fallback was not Gemini, forcing Gemini fallback');
+      fallback = {
+        ...primary,
+        model: fallbackModels[0] || GEMINI_FALLBACK_CHAIN[1] || GEMINI_FALLBACK_CHAIN[0],
+        provider: 'gemini'
+      };
+    }
+    
+    console.log('[CONFIG] Selected fallback provider:', fallback.provider, 'model:', fallback.model);
+    console.log('[CONFIG] Fallback chain:', fallbackModels);
+    console.log('[CONFIG] Final config:', {
+      primary: { provider: primary.provider, model: primary.model },
+      fallback: { provider: fallback.provider, model: fallback.model }
+    });
     
     return {
       primary,
-      fallback
+      fallback,
+      fallbackChain: fallbackModels.map(model => ({
+        ...primary,
+        model,
+        provider: 'gemini'
+      }))
     };
   } catch (error) {
-    console.error('[CONFIG] Failed to load, using defaults');
+    console.error('[CONFIG] Failed to load, using defaults. Error:', error.message);
     const defaultConfig = {
-      provider: 'openai',
-      model: 'gpt-4o-2024-08-06',
+      provider: 'gemini', // Always default to gemini
+      model: GEMINI_FALLBACK_CHAIN[0],
       temperature: 0.7,
       max_completion_tokens: 120,
+      max_output_tokens: 120,
       presence_penalty: 0.3,
       frequency_penalty: 0.2
     };
+    console.log('[CONFIG] Using default config:', defaultConfig);
     return {
       primary: defaultConfig,
-      fallback: defaultConfig
+      fallback: { ...defaultConfig, model: GEMINI_FALLBACK_CHAIN[1] || GEMINI_FALLBACK_CHAIN[0] },
+      fallbackChain: GEMINI_FALLBACK_CHAIN.slice(1).map(model => ({
+        ...defaultConfig,
+        model
+      }))
     };
   }
 }
@@ -425,9 +526,59 @@ serve(async (req)=>{
       }
     });
   }
+  
+  // Handle GET requests
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({
+      error: 'Method not allowed',
+      message: 'This endpoint only accepts POST requests',
+      method: req.method
+    }), {
+      status: 405,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Allow': 'POST, OPTIONS'
+      }
+    });
+  }
+  
   // ===== MAIN CHAT API =====
   try {
-    const { events, roomPath, botPlatformId } = await req.json();
+    // Check if request has a body
+    const contentType = req.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return new Response(JSON.stringify({
+        error: 'Invalid content type',
+        message: 'Content-Type must be application/json'
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+    
+    // Parse JSON body with error handling
+    let requestData;
+    try {
+      requestData = await req.json();
+    } catch (parseError) {
+      return new Response(JSON.stringify({
+        error: 'Invalid JSON',
+        message: 'Request body must be valid JSON',
+        details: parseError.message
+      }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*'
+        }
+      });
+    }
+    
+    const { events, roomPath, botPlatformId } = requestData;
     if (!events || !Array.isArray(events) || events.length === 0) {
       return new Response(JSON.stringify({
         error: 'No events provided'
@@ -501,7 +652,7 @@ serve(async (req)=>{
     console.log('Cached prompt structure built, calling LLM provider...');
     
     // Load model configuration
-    const { primary: primaryConfig, fallback: fallbackConfig } = await getModelConfig();
+    const { primary: primaryConfig, fallback: fallbackConfig, fallbackChain } = await getModelConfig();
     console.log(`[LLM] Provider: ${primaryConfig.provider}, Model: ${primaryConfig.model}, temp: ${primaryConfig.temperature}`);
     
     // Initialize LLMFactory
@@ -550,13 +701,14 @@ serve(async (req)=>{
     // Save events in parallel with LLM call (events saving doesn't depend on LLM response)
     const saveEventsPromise = saveEvents(supabase, bot.id, room.id, events);
     
-    // Generate response with fallback support and cache
+    // Phase 3.1: Generate response with fallback chain, retry logic, and cache
     const botResponse = await llmFactory.generateWithFallback(
       systemPrompt,
       userPrompt,
       primaryConfig,
       fallbackConfig,
-      cachedContent || undefined
+      cachedContent || undefined,
+      fallbackChain || []
     );
     
     // Wait for events to be saved (should already be done, but ensure completion)

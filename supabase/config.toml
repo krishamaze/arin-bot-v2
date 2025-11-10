@@ -4,6 +4,11 @@
 # working directory name when running `supabase init`.
 project_id = "arin-bot-v2"
 
+# Port Configuration
+# This project uses custom ports (65430-65437) to avoid conflicts with other Supabase projects.
+# Default ports are 54321-54323, but these are changed to prevent collisions.
+# If you need to change ports, update all references in this file and in documentation.
+
 [api]
 enabled = true
 # Port to use for the API URL.
@@ -358,3 +363,10 @@ entrypoint = "./functions/chat-api/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/chat-api/*.html" ]
+
+[functions.chat-api-v2]
+verify_jwt = false
+enabled = true
+
+import_map = "./functions/chat-api-v2/deno.json"
+entrypoint = "./functions/chat-api-v2/index.ts"

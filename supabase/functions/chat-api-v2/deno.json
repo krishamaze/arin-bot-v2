@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "zod": "https://deno.land/x/zod/mod.ts"
+  }
+}
+
