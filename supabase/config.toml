@@ -1,13 +1,22 @@
+# ============================================================================
+# CLOUD DEPLOYMENT ONLY - NO DOCKER REQUIRED
+# ============================================================================
+# This project uses cloud-only development workflow.
+# Edge Functions are deployed directly to Supabase Cloud.
+# Local Docker setup is not used or required.
+#
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
-# A string used to distinguish different Supabase projects on the same host. Defaults to the
-# working directory name when running `supabase init`.
+# ============================================================================
+
+# A string used to distinguish different Supabase projects on the same host.
 project_id = "arin-bot-v2"
 
+# NOTE: Port configurations below are for local development only (if needed).
+# For cloud deployment, these are ignored. Functions use Supabase Cloud URLs.
 # Port Configuration
 # This project uses custom ports (65430-65437) to avoid conflicts with other Supabase projects.
 # Default ports are 54321-54323, but these are changed to prevent collisions.
-# If you need to change ports, update all references in this file and in documentation.
 
 [api]
 enabled = true

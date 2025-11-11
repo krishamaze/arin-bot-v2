@@ -114,24 +114,23 @@ export class PromptLoader {
     }
 
     const promptSource = Deno.env.get('PROMPT_SOURCE') || 'yaml';
-    const promptVersion = Deno.env.get('PROMPT_VERSION');
+    const promptVersion = Deno.env.get('PROMPT_VERSION') || '2.1.0';
 
     let prompt: PromptConfig | null = null;
 
-    // Try YAML first if source is 'yaml' or not set
-    if (promptSource === 'yaml' || !promptSource) {
-      if (promptVersion === 'yaml' || !promptVersion) {
-        prompt = await loadPromptFromYAML('yaml');
+    // Try database first if source is 'database'
+    if (promptSource === 'database') {
+      if (promptVersion) {
+        prompt = await loadPromptFromDatabase(promptVersion);
+      }
+      if (!prompt) {
+        prompt = await loadActivePromptFromDatabase();
       }
     }
 
-    // Try database if source is 'database' or YAML failed
-    if (!prompt && (promptSource === 'database' || promptSource === 'yaml')) {
-      if (promptVersion && promptVersion !== 'yaml') {
-        prompt = await loadPromptFromDatabase(promptVersion);
-      } else if (!promptVersion) {
-        prompt = await loadActivePromptFromDatabase();
-      }
+    // Try YAML if source is 'yaml' or not set, or if database failed
+    if (!prompt && (promptSource === 'yaml' || !promptSource)) {
+      prompt = await loadPromptFromYAML(promptVersion);
     }
 
     // Fallback to hardcoded prompt

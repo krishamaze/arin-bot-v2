@@ -162,26 +162,26 @@ async function generateWithModel(
         },
         required: ['her_last_message_feeling', 'conversation_vibe', 'recommended_goal']
       },
-      suggestions: {
-        type: 'array',
-        items: {
-          type: 'object',
-          properties: {
-            type: { 
-              type: 'string',
-              enum: ['Playful/Humorous', 'Curious/Engaging', 'Direct/Confident']
-            },
-            text: { type: 'string' },
-            rationale: { type: 'string' }
+      suggestion: {
+        type: 'object',
+        properties: {
+          type: { 
+            type: 'string',
+            enum: ['Playful/Humorous', 'Curious/Engaging', 'Direct/Confident']
           },
-          required: ['type', 'text', 'rationale']
+          text: { type: 'string' },
+          rationale: {
+            type: 'string',
+            minLength: 120,  // ~21 words (safer floor)
+            maxLength: 240,  // ~42 words (tighter ceiling, prevents 45+ word rationales)
+            description: '1 sentence, 30-50 words explaining why this suggestion works'
+          }
         },
-        minItems: 3,
-        maxItems: 3
+        required: ['type', 'text', 'rationale']
       },
       wingman_tip: { type: 'string' }
     },
-    required: ['analysis', 'suggestions', 'wingman_tip']
+    required: ['analysis', 'suggestion', 'wingman_tip']
   };
 
   // Build request body for v1beta API (supports systemInstruction and structured output)

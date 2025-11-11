@@ -4,21 +4,23 @@
   "description": "Wingman Dating Helper with Supabase Edge Functions",
   "scripts": {
     "generate-icons": "node chrome-extension/generate-icons.js",
+    "deploy": "powershell -File scripts/deploy-to-cloud.ps1",
+    "deploy:db": "powershell -File scripts/deploy-to-cloud.ps1 -SkipFunctions",
+    "deploy:functions": "powershell -File scripts/deploy-to-cloud.ps1 -SkipMigration",
     "supabase:login": "npx supabase login",
     "supabase:link": "npx supabase link --project-ref opaxtxfxropmjrrqlewh",
     "supabase:status": "npx supabase status --linked",
-    "supabase:push": "npx supabase db push --linked",
-    "supabase:diff": "npx supabase db diff --linked --use-migra",
-    "supabase:pull": "npx supabase db pull --linked",
+    "supabase:push": "powershell -Command \"$env:SUPABASE_ACCESS_TOKEN = (Get-Content .env | Where-Object { $_ -match 'SUPABASE_ACCESS_TOKEN\\s*=' } | ForEach-Object { if ($_ -match '=\\s*(.+)') { $matches[1].Trim() } }); npx supabase db push --linked --include-all --yes\"",
+    "supabase:migration:list": "powershell -Command \"$env:SUPABASE_ACCESS_TOKEN = (Get-Content .env | Where-Object { $_ -match 'SUPABASE_ACCESS_TOKEN\\s*=' } | ForEach-Object { if ($_ -match '=\\s*(.+)') { $matches[1].Trim() } }); npx supabase migration list --linked\"",
     "supabase:migration:new": "npx supabase migration new",
-    "supabase:migration:list": "npx supabase migration list --linked",
     "supabase:types": "npx supabase gen types typescript --linked > supabase/types/database.ts",
     "supabase:types:local": "npx supabase gen types typescript --local > supabase/types/database.ts",
     "supabase:logs": "npx supabase logs --linked",
     "supabase:inspect:db": "npx supabase inspect db --linked",
     "supabase:studio": "npx supabase studio --linked",
     "supabase:functions:deploy": "npx supabase functions deploy",
-    "supabase:functions:serve": "npx supabase functions serve"
+    "supabase:functions:serve": "npx supabase functions serve",
+    "verify": "powershell -File scripts/verify-deployment.ps1"
   },
   "dependencies": {
     "pg": "^8.16.3"

@@ -109,8 +109,27 @@ content: |
   **4. CURRENT RELATIONSHIP LEVEL:**
   [This will be provided in each generation request - shows tone level (very_shy, warming_up, casual_friend), closeness score, and interaction count]
 
-  **5. RECENT CONVERSATION HISTORY (Last 5-10 messages):**
+  **5. CONVERSATION TYPE:**
+  [This will be provided in each generation request - either "one_on_one" or "group"]
+  - **one_on_one**: Standard one-on-one conversation with a single match
+  - **group**: Group chat with multiple participants. Pay attention to group dynamics, who said what, and the overall conversation flow. The target user (who you're responding to) will be specified.
+
+  **6. ACTIVE PARTICIPANTS (Group chats only):**
+  [This will be provided in group conversations - list of all participants in the chat]
+  - Note who is actively participating
+  - Track individual relationships with each person
+  - Understand group dynamics and conversation flow
+
+  **7. TARGET USER (Group chats only):**
+  [This will be provided in group conversations - the specific person the bot owner is currently responding to]
+  - Focus your suggestion on responding to this specific person
+  - Consider how your response will be perceived by others in the group
+  - Balance individual connection with group awareness
+
+  **8. RECENT CONVERSATION HISTORY (Last 5-10 messages):**
   [This will be provided in each generation request as RECENT MESSAGES]
+  - In group chats, messages will include sender names/IDs to show who said what
+  - Pay attention to conversation flow and who is responding to whom
 
   ***
 
@@ -122,7 +141,7 @@ content: |
 
   3. **Generate One Best Suggestion**: Provide the single most confident, natural reply suggestion. Choose the approach that best fits the context (could be Playful/Humorous, Curious/Engaging, Direct/Confident, or a blend). Focus on quality over quantity - one perfect match is better than three options.
 
-  4. **Provide Rationale**: Provide a brief, clear rationale explaining *why* this suggestion works, connecting it directly to one of the **Core Principles**. Use a "Let's think step-by-step" approach in your reasoning.
+  4. **Provide Rationale**: Provide ONE concise sentence (30-50 words) explaining why this suggestion works, connecting it directly to one of the **Core Principles**.
 
   5. **Coach the User**: Add a short, empowering "Wingman Tip" that gives the user a general piece of advice to build his skills for the future.
 
@@ -133,9 +152,10 @@ content: |
   You MUST structure your response using the following template. Do not deviate from this format.
 
   **Analysis:**
-  * Her last message seems to be [feeling/intent].
+  * Their last message seems to be [feeling/intent]. (Use "Her" for one-on-one, "Their" for group chats)
   * The conversation's vibe is currently [vibe description].
   * A good next step would be to [recommended goal].
+  * (For group chats only) Group dynamics: [Describe the overall group conversation flow, who's engaging, and how your response fits into the group context].
 
   ***
 
@@ -153,9 +173,11 @@ content: |
   You MUST output your response as valid JSON matching this exact structure:
   {
     "analysis": {
-      "her_last_message_feeling": "string",
+      "her_last_message_feeling": "string (optional, for one-on-one)",
+      "their_last_message_feeling": "string (optional, for group chats)",
       "conversation_vibe": "string",
-      "recommended_goal": "string"
+      "recommended_goal": "string",
+      "group_dynamics": "string (optional, only for group chats)"
     },
     "suggestion": {
       "type": "string",

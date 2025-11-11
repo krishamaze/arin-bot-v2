@@ -1,5 +1,5 @@
 # ===================================
-# Environment Variables
+# Environment Variables & Secrets
 # ===================================
 .env
 .env.local
@@ -9,26 +9,33 @@
 .env.production
 .env.test
 .env.cloud
-
-# Supabase CLI tokens (stored by 'supabase login')
-.supabase/token
+.env.example.local
 
 # ===================================
 # Supabase
 # ===================================
-.branches
-.temp
+# Local development files
+.supabase/
 supabase/.temp/
 supabase/.branches/
-.supabase/
+.branches
+.temp
 .env.cloud
 
+# Supabase CLI tokens
+.supabase/token
+
+# Generated types (can be regenerated)
+supabase/types/*.ts
+!supabase/types/.gitkeep
+
 # ===================================
-# Deno
+# Deno (Edge Functions)
 # ===================================
 .deno/
-deno.lock
 .deno_cache/
+deno.lock
+deno.lock.json
 
 # ===================================
 # Node.js
@@ -42,15 +49,43 @@ lerna-debug.log*
 .npm
 .yarn/
 .pnp.*
+package-lock.json.bak
+yarn.lock.bak
 
 # ===================================
-# Build outputs
+# Build Outputs & Compiled Files
 # ===================================
 dist/
 build/
 out/
 *.js.map
 *.d.ts.map
+*.d.ts
+
+# Compiled JavaScript (only in build/dist directories)
+dist/**/*.js
+build/**/*.js
+out/**/*.js
+
+# TypeScript incremental build
+*.tsbuildinfo
+
+# ===================================
+# Chrome Extension Build Outputs
+# ===================================
+chrome-extension/*.crx
+chrome-extension/*.zip
+chrome-extension/*.pem
+chrome-extension/*.key
+chrome-extension/dist/
+chrome-extension/build/
+
+# ===================================
+# Test Files (HTML test pages)
+# ===================================
+test-*.html
+*-test.html
+*.test.html
 
 # ===================================
 # IDE & Editors
@@ -63,6 +98,9 @@ out/
 !.vscode/launch.json
 *.code-workspace
 
+# Cursor
+.cursor/
+
 # JetBrains IDEs
 .idea/
 *.iml
@@ -73,24 +111,28 @@ out/
 *.swp
 *.swo
 *~
+.netrwhist
 
 # Emacs
 *~
 \#*\#
 .\#*
+.directory
 
 # Sublime Text
 *.sublime-project
 *.sublime-workspace
 
 # ===================================
-# Operating System
+# Operating System Files
 # ===================================
 # macOS
 .DS_Store
 .AppleDouble
 .LSOverride
 ._*
+.Spotlight-V100
+.Trashes
 
 # Windows
 Thumbs.db
@@ -99,6 +141,7 @@ ehthumbs.db
 ehthumbs_vista.db
 Desktop.ini
 $RECYCLE.BIN/
+*.lnk
 
 # Linux
 .directory
@@ -114,9 +157,10 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
+*.log.*
 
 # ===================================
-# Testing
+# Testing & Coverage
 # ===================================
 coverage/
 .nyc_output/
@@ -125,9 +169,12 @@ coverage/
 htmlcov/
 .pytest_cache/
 .tox/
+.jest/
+test-results/
+playwright-report/
 
 # ===================================
-# Temporary files
+# Temporary Files
 # ===================================
 *.tmp
 *.temp
@@ -139,6 +186,7 @@ htmlcov/
 .cache/
 tmp/
 temp/
+.tmp/
 
 # ===================================
 # Database
@@ -147,6 +195,21 @@ temp/
 *.sqlite
 *.sqlite3
 schema_dump.sql
+*.dump
+
+# ===================================
+# Generated & Compiled Assets
+# ===================================
+# Generated icons (if regeneratable)
+# chrome-extension/icons/generated/
+
+# Compiled CSS (if using preprocessors)
+*.css.map
+
+# ===================================
+# Reference Code (read-only, for learning)
+# ===================================
+_reference-implementation/
 
 # ===================================
 # Miscellaneous
@@ -154,3 +217,6 @@ schema_dump.sql
 repomix-output.xml
 *.orig
 .vscode-test/
+*.pid
+*.seed
+*.pid.lock

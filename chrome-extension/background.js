@@ -6,7 +6,9 @@ chrome.commands.onCommand.addListener((command) => {
     // Send message to content script
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       if (tabs[0]) {
-        chrome.tabs.sendMessage(tabs[0].id, { action: 'toggle-panel' });
+        chrome.tabs.sendMessage(tabs[0].id, { action: 'toggle-panel' }).catch(() => {
+          // Ignore errors if content script isn't loaded
+        });
       }
     });
   }
@@ -14,7 +16,9 @@ chrome.commands.onCommand.addListener((command) => {
 
 // Handle extension icon click (toggle panel)
 chrome.action.onClicked.addListener((tab) => {
-  chrome.tabs.sendMessage(tab.id, { action: 'toggle-panel' });
+  chrome.tabs.sendMessage(tab.id, { action: 'toggle-panel' }).catch(() => {
+    // Ignore errors if content script isn't loaded
+  });
 });
 
 // Listen for messages from content script

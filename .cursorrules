@@ -1,0 +1,25 @@
+# Deployment
+- Use `.env` file with `SUPABASE_ACCESS_TOKEN` (no browser login needed)
+- Deploy: `npm run deploy` or `powershell -File scripts/deploy-to-cloud.ps1`
+- CLI auto-uses `SUPABASE_ACCESS_TOKEN` env var when set
+- Load token: `$env:SUPABASE_ACCESS_TOKEN = (Get-Content .env | Where-Object { $_ -match 'SUPABASE_ACCESS_TOKEN\s*=' } | ForEach-Object { if ($_ -match '=\s*(.+)') { $matches[1].Trim() } })`
+
+# Reference Implementation
+- `_reference-implementation/` folder is READ-ONLY reference code for learning patterns
+- DO NOT modify files in `_reference-implementation/` - it's for reference only
+- When implementing similar features, refer to `_reference-implementation/` to understand patterns, then implement in the actual codebase
+- This folder is gitignored and excluded from builds
+
+# Code Style
+- Keep repo clean. Remove temporary or unused files.
+- Document only what's necessary for future development.
+- Avoid unnecessary notes or clutter.
+- Be direct, clear, and concise. No sugarcoating, no assumptions.
+- Don't generate unwanted .md docs — use chat instead.
+- Optimize for cognitive clarity, not cleverness.
+- Prefer local context (cognitive locality). Avoid deep abstractions.
+- Repeat code when it reduces cognitive load (PRY over DRY).
+- Abstract only when enforcing consistent global behavior.
+- Keep feedback kind and constructive.
+- Review the codebase before building. Reuse existing components, functions, and RPCs whenever possible. Keep the system tight and consistent with minimal bloat — no redundant layers, no parallel logic. Extend, don't duplicate.
+
